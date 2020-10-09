@@ -1,6 +1,5 @@
 using URIs
 using Test
 
-@testset "URIs.jl" begin
-    # Write your tests here.
-end
+include("uri.jl")
+include("url.jl")

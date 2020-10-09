@@ -1,8 +1,7 @@
 using JSON
-using HTTP
 using Test
 
-@testset "HTTP.URL" begin
+@testset "URL" begin
     tests = JSON.parse(String(read("resources/cweb-urls.json")))["tests"]["group"]
 
     @testset " - $test - $group" for group in tests, test in group["test"]
@@ -14,9 +13,9 @@ using Test
             uri = nothing
 
             try
-                uri = HTTP.URIs.parse_uri_reference(url; strict=true)
+                uri = URIs.parse_uri_reference(url; strict=true)
             catch e
-                if e isa HTTP.URIs.ParseError || e isa AssertionError
+                if e isa URIs.ParseError || e isa AssertionError
                     continue
                 else
                     rethrow(e)

@@ -6,11 +6,8 @@ export URI,
 
 import Base.==
 
-using ..IOExtras
-import ..@require, ..precondition_error
-import ..@ensure, ..postcondition_error
-import ..isnumeric, ..isletter
-
+const DEBUG_LEVEL = Ref(0)
+include("debug.jl")
 include("parseutils.jl")
 
 struct ParseError <: Exception
@@ -18,15 +15,15 @@ struct ParseError <: Exception
 end
 
 """
-    HTTP.URI(; scheme="", host="", port="", etc...)
-    HTTP.URI(str) = parse(HTTP.URI, str::String)
+    URI(; scheme="", host="", port="", etc...)
+    URI(str) = parse(URI, str::String)
 
 A type representing a URI (e.g. a URL). Can be constructed from distinct parts using the various
-supported keyword arguments, or from a string. The `HTTP.URI` constructors will automatically escape any provided
+supported keyword arguments, or from a string. The `URI` constructors will automatically escape any provided
 `query` arguments, typically provided as `"key"=>"value"::Pair` or `Dict("key"=>"value")`.
 Note that multiple values for a single query key can provided like `Dict("key"=>["value1", "value2"])`.
 
-When constructing a `HTTP.URI` from a `String`, you need to first unescape that string: `HTTP.URI( HTTP.URIs.unescapeuri(str) )`.
+When constructing a `URI` from a `String`, you need to first unescape that string: `URI( URIs.unescapeuri(str) )`.
 
 The `URI` struct stores the complete URI in the `uri::String` field and the
 component parts in the following `SubString` fields:
@@ -38,11 +35,11 @@ component parts in the following `SubString` fields:
   * `query` e.g. `"Foo=1&Bar=2"`
   * `fragment`
 
-The `HTTP.resource(::URI)` function returns a target-resource string for the URI
+The `resource(::URI)` function returns a target-resource string for the URI
 [RFC7230 5.3](https://tools.ietf.org/html/rfc7230#section-5.3).
 e.g. `"\$path?\$query#\$fragment"`.
 
-The `HTTP.queryparams(::URI)` function returns a `Dict` containing the `query`.
+The `queryparams(::URI)` function returns a `Dict` containing the `query`.
 """
 struct URI
     uri::String
@@ -216,10 +213,10 @@ normalport(uri::URI) = uri.scheme == "http"  && uri.port == "80" ||
 
 hoststring(h) = ':' in h ? "[$h]" : h
 
-Base.show(io::IO, uri::URI) = print(io, "HTTP.URI(\"", uri, "\")")
+Base.show(io::IO, uri::URI) = print(io, "URI(\"", uri, "\")")
 
 showparts(io::IO, uri::URI) =
-    print(io, "HTTP.URI(\"", uri.uri, "\"\n",
+    print(io, "URI(\"", uri.uri, "\"\n",
               "    scheme = \"", uri.scheme, "\"",
                        uri.scheme === absent ? " (absent)" : "", ",\n",
               "    userinfo = \"", uri.userinfo, "\"",
@@ -284,7 +281,7 @@ const non_hierarchical = ["gopher", "hdl", "mailto", "news", "telnet", "wais", "
 const uses_query = ["http", "wais", "imap", "https", "shttp", "mms", "gopher", "rtsp", "rtspu", "sip", "sips", "ldap"]
 const uses_fragment = ["hdfs", "ftp", "hdl", "http", "gopher", "news", "nntp", "wais", "https", "shttp", "snews", "file", "prospero"]
 
-"checks if a `HTTP.URI` is valid"
+"checks if a `URI` is valid"
 function Base.isvalid(uri::URI)
     sch = uri.scheme
     isempty(sch) && throw(ArgumentError("can not validate relative URI"))
@@ -303,7 +300,22 @@ end
                           c == '_' ||
                           (isascii(c) && (isletter(c) || isnumeric(c)))
 
-utf8_chars(str::AbstractString) = (Char(c) for c in IOExtras.bytes(str))
+"""
+    _bytes(s::String)
+
+Get a `Vector{UInt8}`, a vector of bytes of a string.
+"""
+function _bytes end
+_bytes(s::SubArray{UInt8}) = unsafe_wrap(Array, pointer(s), length(s))
+
+_bytes(s::Union{Vector{UInt8}, Base.CodeUnits}) = _bytes(String(s))
+_bytes(s::String) = codeunits(s)
+_bytes(s::SubString{String}) = codeunits(s)
+
+_bytes(s::Vector{UInt8}) = s
+
+
+utf8_chars(str::AbstractString) = (Char(c) for c in _bytes(str))
 
 "percent-encode a string, dict, or pair for a uri"
 function escapeuri end
