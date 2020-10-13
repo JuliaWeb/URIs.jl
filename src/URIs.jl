@@ -201,7 +201,11 @@ isabspath(uri::URI) = startswith(uri.path, "/") && !startswith(uri.path, "//")
                     a.userinfo    == b.userinfo
 
 """
-"request-target" per https://tools.ietf.org/html/rfc7230#section-5.3
+    resource(::URI)
+
+The `resource(::URI)` function returns a target-resource string for the URI
+[RFC7230 5.3](https://tools.ietf.org/html/rfc7230#section-5.3).
+e.g. `"\$path?\$query#\$fragment"`.
 """
 resource(uri::URI) = string( isempty(uri.path)     ? "/" :     uri.path,
                             !isempty(uri.query)    ? "?" : "", uri.query,
@@ -267,6 +271,16 @@ uristring(a...) = String(take!(formaturi(IOBuffer(), a...)))
 uristring(u::URI) = uristring(u.scheme, u.userinfo, u.host, u.port,
                               u.path, u.query, u.fragment)
 
+"""
+    queryparams(::URI)
+    queryparams(query_str::AbstractString)
+
+Returns a `Dict` containing the `query` parameter string parsed according to
+the key=value pair formatting convention.
+
+Note that this is not part of the formal URI grammar, merely a common parsing
+convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
+"""
 queryparams(uri::URI) = queryparams(uri.query)
 
 function queryparams(q::AbstractString)
@@ -317,7 +331,11 @@ _bytes(s::Vector{UInt8}) = s
 
 utf8_chars(str::AbstractString) = (Char(c) for c in _bytes(str))
 
-"percent-encode a string, dict, or pair for a uri"
+"""
+    escapeuri(x)
+
+Apply URI percent-encoding to escape special characters in `x`.
+"""
 function escapeuri end
 
 escapeuri(c::Char) = string('%', uppercase(string(Int(c), base=16, pad=2)))
@@ -328,6 +346,13 @@ escapeuri(bytes::Vector{UInt8}) = bytes
 escapeuri(v::Number) = escapeuri(string(v))
 escapeuri(v::Symbol) = escapeuri(string(v))
 
+"""
+    escapeuri(key, value)
+    escapeuri(query_vals)
+
+Percent-encode and concatenate a value pair(s) as they would conventionally be
+encoded within the query part of a URI.
+"""
 escapeuri(key, value) = string(escapeuri(key), "=", escapeuri(value))
 escapeuri(key, values::Vector) = escapeuri(key => v for v in values)
 escapeuri(query) = join((escapeuri(k, v) for (k,v) in query), "&")
@@ -335,7 +360,11 @@ escapeuri(nt::NamedTuple) = escapeuri(pairs(nt))
 
 decodeplus(q) = replace(q, '+' => ' ')
 
-"unescape a percent-encoded uri/url"
+"""
+    unescapeuri(str)
+
+Percent-decode a string according to the URI escaping rules.
+"""
 function unescapeuri(str)
     occursin("%", str) || return str
     out = IOBuffer()
@@ -355,6 +384,12 @@ function unescapeuri(str)
 end
 
 ispathsafe(c::Char) = c == '/' || issafe(c)
+"""
+    escapepath(path)
+
+Escape the path portion of a URI, given the string `path` containing embedded
+`/` characters which separate the path segments.
+"""
 escapepath(path) = escapeuri(path, ispathsafe)
 
 """
@@ -421,6 +456,12 @@ end
 
 absuri(u, context) = absuri(URI(u), URI(context))
 
+"""
+    absuri(uri, context)
+
+Construct an absolute URI, using `uri.path` and `uri.query` and filling in
+other components from `context`.
+"""
 function absuri(uri::URI, context::URI)
 
     if !isempty(uri.host)
