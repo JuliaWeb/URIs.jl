@@ -7,7 +7,6 @@ Identifiers, as defined in [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt).
 
 ```@docs
 URI
-resource
 queryparams
 absuri
 escapeuri
