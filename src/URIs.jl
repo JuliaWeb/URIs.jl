@@ -1,7 +1,7 @@
 module URIs
 
 export URI,
-       resource, queryparams, absuri,
+       queryparams, absuri,
        escapeuri, unescapeuri, escapepath
 
 import Base.==
@@ -34,10 +34,6 @@ component parts in the following `SubString` fields:
   * `path` e.g `"/"`
   * `query` e.g. `"Foo=1&Bar=2"`
   * `fragment`
-
-The `resource(::URI)` function returns a target-resource string for the URI
-[RFC7230 5.3](https://tools.ietf.org/html/rfc7230#section-5.3).
-e.g. `"\$path?\$query#\$fragment"`.
 
 The `queryparams(::URI)` function returns a `Dict` containing the `query`.
 """
@@ -199,17 +195,6 @@ isabspath(uri::URI) = startswith(uri.path, "/") && !startswith(uri.path, "//")
                     a.query       == b.query       &&
                     a.fragment    == b.fragment    &&
                     a.userinfo    == b.userinfo
-
-"""
-    resource(::URI)
-
-The `resource(::URI)` function returns a target-resource string for the URI
-[RFC7230 5.3](https://tools.ietf.org/html/rfc7230#section-5.3).
-e.g. `"\$path?\$query#\$fragment"`.
-"""
-resource(uri::URI) = string( isempty(uri.path)     ? "/" :     uri.path,
-                            !isempty(uri.query)    ? "?" : "", uri.query,
-                            !isempty(uri.fragment) ? "#" : "", uri.fragment)
 
 normalport(uri::URI) = uri.scheme == "http"  && uri.port == "80" ||
                        uri.scheme == "https" && uri.port == "443" ?
