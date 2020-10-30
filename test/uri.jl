@@ -402,6 +402,7 @@ urltests = URLTest[
         @test URI(scheme="http", host="google.com", userinfo="user") == URI("http://user@google.com")
         @test URI(scheme="http", host="google.com", path="/user") == URI("http://google.com/user")
         @test URI(scheme="http", host="google.com", query=Dict("key"=>"value")) == URI("http://google.com?key=value")
+        @test URI(scheme="http", host="google.com", query=Dict()) |> string == "http://google.com"
         @test URI(scheme="http", host="google.com", path="/", fragment="user") == URI("http://google.com/#user")
     end
 
