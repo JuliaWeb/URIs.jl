@@ -340,7 +340,7 @@ encoded within the query part of a URI.
 """
 escapeuri(key, value) = string(escapeuri(key), "=", escapeuri(value))
 escapeuri(key, values::Vector) = escapeuri(key => v for v in values)
-escapeuri(query) = join((escapeuri(k, v) for (k,v) in query), "&")
+escapeuri(query) = isempty(query) ? absent : join((escapeuri(k, v) for (k,v) in query), "&")
 escapeuri(nt::NamedTuple) = escapeuri(pairs(nt))
 
 decodeplus(q) = replace(q, '+' => ' ')
