@@ -269,9 +269,9 @@ convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
 queryparams(uri::URI) = queryparams(uri.query)
 
 function queryparams(q::AbstractString)
-    Dict(unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
-        for (k,v) in ([split(e, "=")..., ""][1:2]
-            for e in split(q, "&", keepempty=false)))
+    Dict{String,String}(unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
+                        for (k,v) in ([split(e, "=")..., ""][1:2]
+                                      for e in split(q, "&", keepempty=false)))
 end
 
 # Validate known URI formats

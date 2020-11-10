@@ -442,6 +442,7 @@ urltests = URLTest[
     end
 
     @testset "Query Params" begin
+        @test queryparams(URI("http://example.com"))::Dict{String,String} == Dict()
         @test queryparams(URI("https://httphost/path1/path2;paramstring?q=a&p=r#frag")) == Dict("q"=>"a","p"=>"r")
         @test queryparams(URI("https://foo.net/?q=a&malformed")) == Dict("q"=>"a","malformed"=>"")
     end
