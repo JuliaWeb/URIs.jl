@@ -48,8 +48,6 @@ struct URI
     fragment::SubString{String}
 end
 
-URI(uri::URI) = uri
-
 const absent = SubString("absent", 1, 0)
 
 const emptyuri = (()->begin
@@ -57,11 +55,9 @@ const emptyuri = (()->begin
     return URI(uri, absent, absent, absent, absent, absent, absent, absent)
 end)()
 
-URI(;kw...) = merge(emptyuri; kw...)
-
 const nostring = ""
 
-function Base.merge(uri::URI; scheme::AbstractString=uri.scheme,
+function URI(uri::URI; scheme::AbstractString=uri.scheme,
                               userinfo::AbstractString=uri.userinfo,
                               host::AbstractString=uri.host,
                               port::Union{Integer,AbstractString}=uri.port,
@@ -82,6 +78,8 @@ function Base.merge(uri::URI; scheme::AbstractString=uri.scheme,
 
     return URI(nostring, scheme, userinfo, host, port, path, querys, fragment)
 end
+
+URI(;kw...) = URI(emptyuri; kw...)
 
 # Based on regex from RFC 3986:
 # https://tools.ietf.org/html/rfc3986#appendix-B
@@ -457,8 +455,19 @@ function absuri(uri::URI, context::URI)
     @assert !isempty(context.host)
     @assert isempty(uri.port)
 
-    return merge(context; path=uri.path, query=uri.query)
+    return URI(context; path=uri.path, query=uri.query)
 end
+
+"""
+    joinpath(uri, path) -> URI
+
+Join the path component of URI and other parts.
+"""
+function Base.joinpath(uri::URI, parts::String...)
+    return URI(uri; path=join((uri.path, map(_trailing_first_slash, parts)...), '/'))
+end
+
+_trailing_first_slash(x::String) = startswith(x, '/') ? x[2:end] : x
 
 function __init__()
     Threads.resize_nthreads!(uri_reference_regex)
@@ -467,5 +476,6 @@ function __init__()
     return
 end
 
+include("deprecate.jl")
 
 end # module

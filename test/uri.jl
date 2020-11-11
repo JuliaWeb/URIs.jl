@@ -511,4 +511,8 @@ urltests = URLTest[
         checknp("http://a/b/c/../../", "http://a/")
         checknp("http://a/b/c/../../g", "http://a/g")
     end
+
+    @testset "joinpath" begin
+        @test joinpath(URIs.URI("http://a.b.c/d/e/f"), "a/b", "c") == URI("http://a.b.c/d/e/f/a/b/c")
+    end
 end
