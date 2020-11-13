@@ -464,10 +464,18 @@ end
 Join the path component of URI and other parts.
 """
 function Base.joinpath(uri::URI, parts::String...)
-    return URI(uri; path=join((uri.path, map(_trailing_first_slash, parts)...), '/'))
+    path = uri.path
+    for p in parts
+        if startswith(p, '/')
+            path = p
+        elseif isempty(path) || path[end] == '/'
+            path *= p
+        else
+            path *= "/" * p
+        end
+    end
+    return URI(uri; path=normpath(path))
 end
-
-_trailing_first_slash(x::String) = startswith(x, '/') ? x[2:end] : x
 
 function __init__()
     Threads.resize_nthreads!(uri_reference_regex)
