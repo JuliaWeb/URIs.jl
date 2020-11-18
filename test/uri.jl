@@ -517,5 +517,6 @@ urltests = URLTest[
         @test joinpath(URIs.URI("http://a.b.c/d/../f"), "a/b", "c") == URI("http://a.b.c/f/a/b/c")
         @test joinpath(URIs.URI("http://a.b.c/d/f"), "/b", "c") == URI("http://a.b.c/b/c")
         @test joinpath(URIs.URI("http://a.b.c/"), "b", "c") == URI("http://a.b.c/b/c")
+        @test joinpath(URIs.URI("http://a.b.c"), "b", "c") == URI("http://a.b.c/b/c")
     end
 end

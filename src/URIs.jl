@@ -474,6 +474,10 @@ function Base.joinpath(uri::URI, parts::String...)
             path *= "/" * p
         end
     end
+
+    if isempty(uri.path)
+        path = "/" * path
+    end
     return URI(uri; path=normpath(path))
 end
 
