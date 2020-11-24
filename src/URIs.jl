@@ -468,7 +468,7 @@ function Base.joinpath(uri::URI, parts::String...)
     for p in parts
         if startswith(p, '/')
             path = p
-        elseif isempty(path) || path[end] == '/'
+        elseif isempty(path) || endswith(path, '/')
             path *= p
         else
             path *= "/" * p
