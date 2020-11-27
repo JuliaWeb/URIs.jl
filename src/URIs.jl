@@ -455,7 +455,22 @@ function absuri(uri::URI, context::URI)
     @assert !isempty(context.host)
     @assert isempty(uri.port)
 
-    return URI(context; path=uri.path, query=uri.query)
+    if !(context.scheme in ["http", "https"]) || isempty(uri.path) || uri.path[1] == '/'
+        path = String(uri.path)
+    else
+        # > The "Location" header field is used to identify a newly created resource, or to redirect the recipient to a different location for completion of the request.
+        # > The field value consists of a single URI-reference. When it has the form of a relative reference ([RFC3986], Section 4.2), the final value is computed by resolving it against the effective request URI ([RFC3986], Section 5).
+        # Sources:
+        # 1. https://greenbytes.de/tech/webdav/draft-ietf-httpbis-p2-semantics-17.html#header.location
+        # 2. https://web.archive.org/web/20200926022629/https://greenbytes.de/tech/webdav/draft-ietf-httpbis-p2-semantics-17.html
+        # 3. https://www.rfc-editor.org/rfc/rfc3986.html#section-4.2
+        # 4. https://web.archive.org/web/20201106144353/https://www.rfc-editor.org/rfc/rfc3986.html#section-4.2
+        # 5. https://www.rfc-editor.org/rfc/rfc3986.html#section-5
+        # 6. https://web.archive.org/web/20201106144353/https://www.rfc-editor.org/rfc/rfc3986.html#section-5
+        path = String(uristring(normpath(joinpath(URI(; path = context.path), "..", String(uri.path)))))
+    end
+
+    return URI(context; path=path, query=uri.query)
 end
 
 """
