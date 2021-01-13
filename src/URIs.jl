@@ -376,27 +376,64 @@ Escape the path portion of a URI, given the string `path` containing embedded
 escapepath(path) = escapeuri(path, ispathsafe)
 
 """
-Splits the path into components
-See: http://tools.ietf.org/html/rfc3986#section-3.3
+    URIs.splitpath(path|uri; rstrip_empty_segment=true)
+
+Splits the path into component segments based on `/`, according to
+http://tools.ietf.org/html/rfc3986#section-3.3. Any fragment and query parts of
+the string are ignored if present.
+
+A final empty path segment (trailing '/') is removed, if present. This is
+technically incompatible with the segment grammar of RFC3986, but it seems to
+be a common recommendation to make paths with and without a trailing slash
+equivalent. To preserve any final empty path segment, set
+`rstrip_empty_segment=false`.
+
+# Examples
+
+```jldoctest
+julia> URIs.splitpath(URI("http://example.com/foo/bar?a=b&c=d"))
+2-element Array{String,1}:
+ "foo"
+ "bar"
+
+julia> URIs.splitpath("/foo/bar/")
+2-element Array{String,1}:
+ "foo"
+ "bar"
+```
 """
-function splitpath(p::AbstractString)
+function splitpath(path::AbstractString; rstrip_empty_segment::Bool=true)
     elems = String[]
-    len = length(p)
-    len > 1 || return elems
-    start_ind = i = ifelse(p[1] == '/', 2, 1)
+    n = ncodeunits(path)
+    n > 0 || return elems
+    i = path[1] == '/' ? 1 : 0
+    start_ind = i + 1
     while true
-        c = p[i]
-        if c == '/'
-            push!(elems, p[start_ind:i-1])
-            start_ind = i + 1
-        elseif i == len
-            push!(elems, p[start_ind:i])
+        nexti = nextind(path, i)
+        if nexti > n
+            break
         end
-        i += 1
-        (i > len || c in ('?', '#')) && break
+        c = path[nexti]
+        if c in ('?', '#')
+            break
+        end
+        if c == '/'
+            push!(elems, path[start_ind:i])
+            start_ind = nexti + 1
+        end
+        i = nexti
+    end
+    push!(elems, path[start_ind:i])
+    if rstrip_empty_segment && !isempty(elems) && isempty(elems[end])
+        # Trailing slashes do not introduce a final segment by default.  This is
+        # technically incompatible with the grammar of RFC3986, but seems to be
+        # a common convention, and was present in URIs 1.0
+        pop!(elems)
     end
     return elems
 end
+
+splitpath(uri::URI; kws...) = splitpath(uri.path; kws...)
 
 """
     URIs.normpath(url)

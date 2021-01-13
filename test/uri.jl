@@ -54,7 +54,7 @@ urls = [("hdfs://user:password@hdfshost:9000/root/folder/file.csv#frag", ["root"
             ("mailto:John.Doe@example.com", ["John.Doe@example.com"]),
             ("news:comp.infosystems.www.servers.unix", ["comp.infosystems.www.servers.unix"]),
             ("tel:+1-816-555-1212", ["+1-816-555-1212"]),
-            ("telnet://192.0.2.16:80/", String[]),
+            ("telnet://192.0.2.16:80/", []),
             ("urn:oasis:names:specification:docbook:dtd:xml:4.1.2", ["oasis:names:specification:docbook:dtd:xml:4.1.2"])
             ]
 
@@ -406,11 +406,39 @@ urltests = URLTest[
         @test URI(scheme="http", host="google.com", path="/", fragment="user") == URI("http://google.com/#user")
     end
 
-    @testset "$url - $splpath" for (url, splpath) in urls
-        u = parse(URI, url)
-        @test string(u) == url
-        @test isvalid(u)
-        @test URIs.splitpath(u.path) == splpath
+    @testset "URIs.splitpath" begin
+        @test URIs.splitpath("") == []
+        @test URIs.splitpath("/") == []
+        @test URIs.splitpath("a") == ["a"]
+        @test URIs.splitpath("/a") == ["a"]
+        @test URIs.splitpath("/a/bb/ccc") == ["a", "bb", "ccc"]
+        # Support for stripping ? and # sufficies.
+        # Shouldn't arise if used with url.path, where this part of the parsing
+        # will already be done.
+        @test URIs.splitpath("/a/b?query") == ["a", "b"]
+        @test URIs.splitpath("/a/b#query/c") == ["a", "b"]
+        @test URIs.splitpath("/a/b#frag") == ["a", "b"]
+
+        # Support for non-ASCII code points — may arise after percent decoding
+        @test URIs.splitpath("/α") == ["α"]
+        @test URIs.splitpath("α/ββ/γγγ") == ["α", "ββ", "γγγ"]
+
+        # Trailing slash handling
+        @test URIs.splitpath("/a/") == ["a"]
+        @test URIs.splitpath("/a/", rstrip_empty_segment=false) == ["a", ""]
+
+        # URIs can be provided
+        @test URIs.splitpath(URI("http://example.com/a/bb?query#frag")) == ["a", "bb"]
+        @test URIs.splitpath(URI("http://example.com/a/bb/"),
+                             rstrip_empty_segment=false) == ["a", "bb", ""]
+
+        # Other cases
+        @testset "$url - $splpath" for (url, splpath) in urls
+            u = parse(URI, url)
+            @test string(u) == url
+            @test isvalid(u)
+            @test URIs.splitpath(u) == splpath
+        end
     end
 
     @testset "Parse" begin
