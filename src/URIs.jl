@@ -358,7 +358,7 @@ function unescapeuri(str)
         if c == '%'
             c1 = read(io, Char)
             c = read(io, Char)
-            write(out, parse(UInt8, string(c1, c); base=16))
+            write(out, try parse(UInt8, string(c1, c); base=16) catch e; @warn e; string(c1, c) end)
         else
             write(out, c)
         end
