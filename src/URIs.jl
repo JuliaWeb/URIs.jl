@@ -2,7 +2,8 @@ module URIs
 
 export URI,
        queryparams, absuri,
-       escapeuri, unescapeuri, escapepath
+       escapeuri, unescapeuri, escapepath,
+       resolvereference
 
 import Base.==
 
@@ -516,6 +517,73 @@ function Base.joinpath(uri::URI, parts::String...)
         path = "/" * path
     end
     return URI(uri; path=normpath(path))
+end
+
+"""
+    resolvereference(base, ref)
+
+Resolve a URI reference `ref` relative to the absolute base URI `base`,
+complying with RFC 3986 Section 5.2.
+"""
+function resolvereference(base::URI, ref::URI)
+    # In the case where the second URI is absolute, we just return the
+    # reference URI. Refer to https://tools.ietf.org/html/rfc3986#section-5.2.2
+    #
+    # We also default to just returning the reference when the base URI is
+    # non-absolute.
+    if base.scheme == "" || ref.scheme != ""
+        return ref
+    end
+
+    host, port, path, query = if ref.host != ""
+        ref.host, ref.port, ref.path, ref.query
+    else
+        path, query = if ref.path == ""
+            base.path, (ref.query == "") ? base.query : ref.query
+        else
+            path = startswith(ref.path, "/") ? ref.path : resolveref_merge(base, ref)
+            #path = remove_dot_segments(path)
+            path, ref.query
+        end
+        base.host, base.port, path, query
+    end
+
+    path = normpath(path)
+    scheme = base.scheme
+    fragment = ref.fragment
+    userinfo = (ref.userinfo == "") ? base.userinfo : ref.userinfo
+
+    URI(;
+        scheme=scheme,
+        userinfo=userinfo,
+        host=host,
+        port=port,
+        path=path,
+        query=query,
+        fragment=fragment
+    )
+end
+
+resolvereference(base, ref) = resolvereference(URI(base), ref)
+resolvereference(base::URI, ref) = resolvereference(base, URI(ref))
+
+"""
+    resolveref_merge(base, ref)
+
+Implementation of the "merge" routine described in RFC 3986 Sec. 5.2.3 for merging
+a relative-path reference with the path of the base URI.
+"""
+function resolveref_merge(base, ref)
+    if base.host != "" && base.path == ""
+        "/" * ref.path
+    else
+        last_slash = findprev('/', base.path, lastindex(base.path))
+        if last_slash === nothing
+            ref.path
+        else
+            base.path[1:last_slash] * ref.path
+        end
+    end
 end
 
 function __init__()
