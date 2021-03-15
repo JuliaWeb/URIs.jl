@@ -548,18 +548,17 @@ function resolvereference(base::URI, ref::URI)
     #
     # We also default to just returning the reference when the base URI is
     # non-absolute.
-    if base.scheme == "" || ref.scheme != ""
+    if isempty(base.scheme) || !isempty(ref.scheme)
         return ref
     end
 
-    host, port, path, query = if ref.host != ""
+    host, port, path, query = if !isempty(ref.host)
         ref.host, ref.port, ref.path, ref.query
     else
-        path, query = if ref.path == ""
-            base.path, (ref.query == "") ? base.query : ref.query
+        path, query = if isempty(ref.path)
+            base.path, isempty(ref.query) ? base.query : ref.query
         else
             path = startswith(ref.path, "/") ? ref.path : resolveref_merge(base, ref)
-            #path = remove_dot_segments(path)
             path, ref.query
         end
         base.host, base.port, path, query
@@ -568,7 +567,7 @@ function resolvereference(base::URI, ref::URI)
     path = normpath(path)
     scheme = base.scheme
     fragment = ref.fragment
-    userinfo = (ref.userinfo == "") ? base.userinfo : ref.userinfo
+    userinfo = isempty(ref.userinfo) ? base.userinfo : ref.userinfo
 
     URI(;
         scheme=scheme,
@@ -591,7 +590,7 @@ Implementation of the "merge" routine described in RFC 3986 Sec. 5.2.3 for mergi
 a relative-path reference with the path of the base URI.
 """
 function resolveref_merge(base, ref)
-    if base.host != "" && base.path == ""
+    if !isempty(base.host) && isempty(base.path)
         "/" * ref.path
     else
         last_slash = findprev("/", base.path, lastindex(base.path))
