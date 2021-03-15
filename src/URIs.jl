@@ -594,10 +594,11 @@ function resolveref_merge(base, ref)
     if base.host != "" && base.path == ""
         "/" * ref.path
     else
-        last_slash = findprev('/', base.path, lastindex(base.path))
+        last_slash = findprev("/", base.path, lastindex(base.path))
         if last_slash === nothing
             ref.path
         else
+            last_slash = first(last_slash)
             base.path[1:last_slash] * ref.path
         end
     end
