@@ -523,7 +523,24 @@ end
     resolvereference(base, ref)
 
 Resolve a URI reference `ref` relative to the absolute base URI `base`,
-complying with RFC 3986 Section 5.2.
+complying with RFC 3986 Section 5.2. `base` and `ref` should both be
+of type `Union{URI,AbstractString}`.
+
+If `ref` is an absolute URI, then this function just returns a copy
+of `ref`.
+
+# Examples
+
+```jldoctest; setup = :(using URIs)
+julia> u = resolvereference("http://example.org/foo/bar/", "/baz/")
+URI("http://example.org/baz/")
+
+julia> resolvereference(u, "./hello/world")
+URI("http://example.org/baz/hello/world")
+
+julia> resolvereference(u, "http://localhost:8000")
+URI("http://localhost:8000")
+```
 """
 function resolvereference(base::URI, ref::URI)
     # In the case where the second URI is absolute, we just return the

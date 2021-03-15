@@ -57,6 +57,7 @@ absuri
 escapeuri
 unescapeuri
 escapepath
+resolvereference
 URIs.splitpath
 Base.isvalid(::URI)
 ```
