@@ -84,8 +84,9 @@ URI(;kw...) = URI(emptyuri; kw...)
 
 # Based on regex from RFC 3986:
 # https://tools.ietf.org/html/rfc3986#appendix-B
-const uri_reference_regex =
-    [RegexAndMatchData(r"""^
+const uri_reference_regex = RegexAndMatchData[]
+function uri_reference_regex_f()
+    r = RegexAndMatchData(r"""^
     (?: ([^:/?#]+) :) ?                     # 1. scheme
     (?: // (?: ([^/?#@]*) @) ?              # 2. userinfo
            (?| (?: \[ ([^:\]]*:[^\]]*) \] ) # 3. host (ipv6)
@@ -94,7 +95,11 @@ const uri_reference_regex =
     ([^?#]*)                                # 5. path
     (?: \?([^#]*) ) ?                       # 6. query
     (?: [#](.*) ) ?                         # 7. fragment
-    $"""x)]
+    $"""x)
+    Base.compile(r.re)
+    initialize!(r)
+    r
+end
 
 """
 https://tools.ietf.org/html/rfc3986#section-3
@@ -112,7 +117,7 @@ https://tools.ietf.org/html/rfc3986#section-4.1
 """
 function parse_uri_reference(str::Union{String, SubString{String}};
                              strict = false)
-    uri_reference_re = uri_reference_regex[Threads.threadid()]
+    uri_reference_re = access_threaded(uri_reference_regex_f, uri_reference_regex)
     if !exec(uri_reference_re, str)
         throw(ParseError("URI contains invalid character"))
     end
@@ -600,10 +605,22 @@ function resolveref_merge(base, ref)
     end
 end
 
+
+function access_threaded(f, v::Vector)
+    tid = Threads.threadid()
+    0 < tid <= length(v) || _length_assert()
+    if @inbounds isassigned(v, tid)
+        @inbounds x = v[tid]
+    else
+        x = f()
+        @inbounds v[tid] = x
+    end
+    return x
+end
+@noinline _length_assert() =  @assert false "0 < tid <= v"
+
 function __init__()
-    Threads.resize_nthreads!(uri_reference_regex)
-    foreach(x -> Base.compile(x.re), uri_reference_regex)
-    foreach(initialize!, uri_reference_regex)
+    resize!(empty!(uri_reference_regex), Threads.nthreads())
     return
 end
 
