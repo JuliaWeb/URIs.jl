@@ -547,4 +547,55 @@ urltests = URLTest[
         @test joinpath(URIs.URI("http://a.b.c/"), "b", "c") == URI("http://a.b.c/b/c")
         @test joinpath(URIs.URI("http://a.b.c"), "b", "c") == URI("http://a.b.c/b/c")
     end
+
+    @testset "resolvereference" begin
+        # Tests for resolving URI references, as defined in Section 5.4
+
+        # Perform some basic tests resolving absolute and relative references to a base URI
+        uri = URI("http://example.org/foo/bar/")
+        @test resolvereference(uri, "/baz") == URI("http://example.org/baz")
+        @test resolvereference(uri, "baz/") == URI("http://example.org/foo/bar/baz/")
+        @test resolvereference(uri, "../baz/") == URI("http://example.org/foo/baz/")
+
+        # If the base URI's path doesn't end with a /, we handle relative URIs a little differently
+        uri = URI("http://example.org/foo/bar")
+        @test resolvereference(uri, "baz") == URI("http://example.org/foo/baz")
+        @test resolvereference(uri, "../baz") == URI("http://example.org/baz")
+
+        # If the second URI is absolute, or the first URI isn't, we should just return the
+        # second URI.
+        @test resolvereference("http://www.example.org", "http://example.com") == URI("http://example.com")
+        @test resolvereference("http://example.org/foo", "http://example.org/bar") == URI("http://example.org/bar")
+        @test resolvereference("/foo", "/bar/baz") == URI("/bar/baz")
+
+        # "Normal examples" specified in Section 5.4.1
+        base = URI("http://a/b/c/d;p?q")
+        @test resolvereference(base, "g:h") == URI("g:h")
+        @test resolvereference(base, "g") == URI("http://a/b/c/g")
+        @test resolvereference(base, "./g") == URI("http://a/b/c/g")
+        @test resolvereference(base, "g/") == URI("http://a/b/c/g/")
+        @test resolvereference(base, "/g") == URI("http://a/g")
+        @test resolvereference(base, "//g") == URI("http://g")
+        @test resolvereference(base, "?y") == URI("http://a/b/c/d;p?y")
+        @test resolvereference(base, "g?y") == URI("http://a/b/c/g?y")
+        @test resolvereference(base, "#s") == URI("http://a/b/c/d;p?q#s")
+        @test resolvereference(base, "g#s") == URI("http://a/b/c/g#s")
+        @test resolvereference(base, "g?y#s") == URI("http://a/b/c/g?y#s")
+        @test resolvereference(base, ";x") == URI("http://a/b/c/;x")
+        @test resolvereference(base, "g;x") == URI("http://a/b/c/g;x")
+        @test resolvereference(base, "g;x?y#s") == URI("http://a/b/c/g;x?y#s")
+        @test resolvereference(base, "") == URI("http://a/b/c/d;p?q")
+        @test resolvereference(base, ".") == URI("http://a/b/c/")
+        @test resolvereference(base, "./") == URI("http://a/b/c/")
+        @test resolvereference(base, "..") == URI("http://a/b/")
+        @test resolvereference(base, "../") == URI("http://a/b/")
+        @test resolvereference(base, "../g") == URI("http://a/b/g")
+        @test resolvereference(base, "../..") == URI("http://a/")
+        @test resolvereference(base, "../../") == URI("http://a/")
+        @test resolvereference(base, "../../g") == URI("http://a/g")
+
+        # "Abnormal examples" specified in Section 5.4.2
+        @test resolvereference(base, "../../../g") == URI("http://a/g")
+        @test resolvereference(base, "../../../../g") == URI("http://a/g")
+    end
 end
