@@ -520,14 +520,12 @@ function Base.joinpath(uri::URI, parts::String...)
 end
 
 """
-    resolvereference(base, ref)
+    resolvereference(base::Union{URI,AbstractString}, ref::Union{URI,AbstractString}) -> URI
 
 Resolve a URI reference `ref` relative to the absolute base URI `base`,
-complying with RFC 3986 Section 5.2. `base` and `ref` should both be
-of type `Union{URI,AbstractString}`.
+complying with [RFC 3986 Section 5.2](https://tools.ietf.org/html/rfc3986#section-5.2).
 
-If `ref` is an absolute URI, then this function just returns a copy
-of `ref`.
+If `ref` is an absolute URI, return `ref` unchanged.
 
 # Examples
 
@@ -580,8 +578,7 @@ function resolvereference(base::URI, ref::URI)
     )
 end
 
-resolvereference(base, ref) = resolvereference(URI(base), ref)
-resolvereference(base::URI, ref) = resolvereference(base, URI(ref))
+resolvereference(base, ref) = resolvereference(URI(base), URI(ref))
 
 """
     resolveref_merge(base, ref)
