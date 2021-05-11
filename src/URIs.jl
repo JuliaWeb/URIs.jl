@@ -348,17 +348,21 @@ decodeplus(q) = replace(q, '+' => ' ')
 
 Percent-decode a string according to the URI escaping rules.
 """
-function unescapeuri(str)
+function unescapeuri(str::String; malformatted_error = true)
     occursin("%", str) || return str
     out = IOBuffer()
     i = 1
     io = IOBuffer(str)
-    while !eof(io)
+    while !eof(io) 
         c = read(io, Char)
-        if c == '%'
+        if (c == '%') & malformatted_error
             c1 = read(io, Char)
             c = read(io, Char)
-            write(out, try parse(UInt8, string(c1, c); base=16) catch e; @warn e; string(c1, c) end)
+            write(out, parse(UInt8, string(c1, c); base=16))
+        elseif (!malformatted_error) & (c == '%') & !eof(io)
+            c1 = read(io, Char)
+            c = read(io, Char)
+            write(out, try parse(UInt8, string(c1, c); base=16) catch; string(c1, c) end)
         else
             write(out, c)
         end
