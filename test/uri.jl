@@ -404,6 +404,9 @@ urltests = URLTest[
         @test URI(scheme="http", host="google.com", query=Dict("key"=>"value")) == URI("http://google.com?key=value")
         @test URI(scheme="http", host="google.com", query=Dict()) |> string == "http://google.com"
         @test URI(scheme="http", host="google.com", path="/", fragment="user") == URI("http://google.com/#user")
+
+        # Precondition error messages refer to the function name (#32)
+        @test_throws ArgumentError("URI() requires `scheme in uses_authority || isempty(host)`") URI(; host="example.com")
     end
 
     @testset "URIs.splitpath" begin
@@ -597,5 +600,15 @@ urltests = URLTest[
         # "Abnormal examples" specified in Section 5.4.2
         @test resolvereference(base, "../../../g") == URI("http://a/g")
         @test resolvereference(base, "../../../../g") == URI("http://a/g")
+    end
+
+    @testset "error testing tools" begin
+        function foo(x, y)
+            URIs.@require x > 10
+            URIs.@ensure y > 10
+        end
+
+        @test_throws ArgumentError("foo() requires `x > 10`") foo(1, 11)
+        @test_throws AssertionError("foo() failed to ensure `y > 10`\ny = 1\n10 = 10") foo(11, 1)
     end
 end
