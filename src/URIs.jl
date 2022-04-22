@@ -261,8 +261,8 @@ uristring(u::URI) = uristring(u.scheme, u.userinfo, u.host, u.port,
                               u.path, u.query, u.fragment)
 
 """
-    queryparams(::URI)
-    queryparams(query_str::AbstractString)
+    queryparams(::URI) -> Dict
+    queryparams(query_str::AbstractString) -> Dict
 
 Returns a `Dict` containing the `query` parameter string parsed according to
 the key=value pair formatting convention.
@@ -483,7 +483,7 @@ end
 absuri(u, context) = absuri(URI(u), URI(context))
 
 """
-    absuri(uri, context)
+    absuri(uri::Union{URI,AbstractString}, context::Union{URI,AbstractString}) -> URI
 
 Construct an absolute URI, using `uri.path` and `uri.query` and filling in
 other components from `context`.
@@ -502,7 +502,7 @@ function absuri(uri::URI, context::URI)
 end
 
 """
-    joinpath(uri, path) -> URI
+    joinpath(uri::URI, path::AbstractString) -> URI
 
 Join the path component of URI and other parts.
 """
