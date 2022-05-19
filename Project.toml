@@ -4,7 +4,7 @@ authors = ["Jacob Quinn", "Sam O'Connor", "contributors: https://github.com/Juli
 version = "1.3.1"
 
 [compat]
-julia = "1"
+julia = "1.6"
 
 [extras]
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
