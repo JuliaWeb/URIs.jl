@@ -446,6 +446,7 @@ urltests = URLTest[
 
     @testset "Parse" begin
         @test parse(URI, "hdfs://user:password@hdfshost:9000/root/folder/file.csv") == URI(host="hdfshost", path="/root/folder/file.csv", scheme="hdfs", port=9000, userinfo="user:password")
+        @test parse(URI, "ssh://testuser@test.com") == URI(scheme = "ssh",  host="test.com", userinfo="testuser")
         @test parse(URI, "http://google.com:80/some/path") == URI(scheme="http", host="google.com", path="/some/path")
 
         @test parse(URI, "https://user:password@httphost:9000/path1/path2;paramstring?q=a&p=r#frag").userinfo == "user:password"
