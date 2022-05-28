@@ -459,7 +459,7 @@ normpath(url::URI) =
 _tail(s, prefix) = last(s, length(s) - length(prefix))
 function _pop_segment(buf)
     last_slash = findlast('/', buf)
-    (last_slash === nothing) ? "" : buf[begin:prevind(buf, last_slash)]
+    (last_slash === nothing) ? "" : buf[firstindex(buf):prevind(buf, last_slash)]
 end
 
 function normpath(p::AbstractString)
@@ -495,7 +495,7 @@ function normpath(p::AbstractString)
                 output = output * p
                 last(p, 0)
             else
-                prefix = p[begin:prevind(p, next_slash)]
+                prefix = p[firstindex(p):prevind(p, next_slash)]
                 output = output * prefix
                 _tail(p, prefix)
             end
