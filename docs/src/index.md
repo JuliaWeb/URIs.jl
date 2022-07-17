@@ -53,6 +53,7 @@ Dict{String,String} with 2 entries:
 ```@docs
 URI
 queryparams
+queryparampairs
 absuri
 escapeuri
 unescapeuri
