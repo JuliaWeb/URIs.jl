@@ -444,7 +444,9 @@ splitpath(uri::URI; kws...) = splitpath(uri.path; kws...)
 """
     URIs.normpath(url)
 
-Normalize the path portion of a URI by removing dot segments.
+Normalize the path portion of a URI by removing dot segments. This function
+corresponds to the `remove_dot_segments` function described in Sec. 5.2.4 of
+IETF RFC 3986.
 
 Refer to:
 * https://tools.ietf.org/html/rfc3986#section-5.2.4
@@ -453,31 +455,54 @@ normpath(url::URI) =
     URI(scheme=url.scheme, userinfo=url.userinfo, host=url.host, port=url.port,
         path=normpath(url.path), query=url.query, fragment=url.fragment)
 
+# normpath helper functions
+_tail(s, prefix) = last(s, length(s) - length(prefix))
+function _pop_segment(buf)
+    last_slash = findlast('/', buf)
+    (last_slash === nothing) ? "" : buf[firstindex(buf):prevind(buf, last_slash)]
+end
+
 function normpath(p::AbstractString)
-    if isempty(p) || p == "/"
-        return p
-    elseif p == "." || p == ".."
-        return "/"
-    end
-    buf = String[]
-    for part in splitpath(p)
-        if part == "."
-            continue
-        elseif part == ".."
-            isempty(buf) || pop!(buf)
+    # Ref: IETF RFC 3986 Sec. 5.2.4
+    # https://datatracker.ietf.org/doc/html/rfc3986#section-5.2.4
+    output = ""
+
+    while !isempty(p)
+        # Condition A
+        p = if startswith(p, "./")
+            _tail(p, "./")
+        elseif startswith(p, "../")
+            _tail(p, "../")
+        # Condition B
+        elseif startswith(p, "/./")
+            "/" * _tail(p, "/./")
+        elseif p == "/."
+            "/"
+        # Condition C
+        elseif startswith(p, "/../")
+            output = _pop_segment(output)
+            "/" * _tail(p, "/../")
+        elseif p == "/.."
+            output = _pop_segment(output)
+            "/"
+        # Condition D
+        elseif occursin(r"^\.+$", p)
+            last(p, 0)
+        # Condition E
         else
-            push!(buf, part)
+            next_slash = findnext(isequal('/'), p, nextind(p, 1))
+            if (next_slash === nothing)
+                output = output * p
+                last(p, 0)
+            else
+                prefix = p[firstindex(p):prevind(p, next_slash)]
+                output = output * prefix
+                _tail(p, prefix)
+            end
         end
     end
-    out = join(buf, '/')
-    # Preserve leading and trailing slashes if present, but don't duplicate them
-    if startswith(p, '/') && !startswith(out, '/')
-        out = "/" * out
-    end
-    if (endswith(p, '/') || endswith(p, '.')) && !endswith(out, '/')
-        out *= "/"
-    end
-    out
+
+    output
 end
 
 absuri(u, context) = absuri(URI(u), URI(context))

@@ -531,6 +531,8 @@ urltests = URLTest[
         # "Abnormal" examples in https://tools.ietf.org/html/rfc3986#section-5.4.2
         checknp("http://a/b/c/d/../../../g", "http://a/g")
         checknp("http://a/b/c/d/../../../../g", "http://a/g")
+        checknp("http://a/b/c/g.", "http://a/b/c/g.")
+        checknp("http://a/b/c/g..", "http://a/b/c/g..")
 
         # "Normal" examples
         checknp("http://a", "http://a")
@@ -553,6 +555,7 @@ urltests = URLTest[
     end
 
     @testset "resolvereference" begin
+        # Reference: IETF RFC 3986: https://datatracker.ietf.org/doc/html/rfc3986
         # Tests for resolving URI references, as defined in Section 5.4
 
         # Perform some basic tests resolving absolute and relative references to a base URI
@@ -601,6 +604,25 @@ urltests = URLTest[
         # "Abnormal examples" specified in Section 5.4.2
         @test resolvereference(base, "../../../g") == URI("http://a/g")
         @test resolvereference(base, "../../../../g") == URI("http://a/g")
+
+        @test resolvereference(base, "/./g") == URI("http://a/g")
+        @test resolvereference(base, "/../g") == URI("http://a/g")
+        @test resolvereference(base, "g.") == URI("http://a/b/c/g.")
+        @test resolvereference(base, ".g") == URI("http://a/b/c/.g")
+        @test resolvereference(base, "g..") == URI("http://a/b/c/g..")
+        @test resolvereference(base, "..g") == URI("http://a/b/c/..g")
+
+        @test resolvereference(base, "./../g") == URI("http://a/b/g")
+        @test resolvereference(base, "./g/.") == URI("http://a/b/c/g/")
+        @test resolvereference(base, "g/./h") == URI("http://a/b/c/g/h")
+        @test resolvereference(base, "g/../h") == URI("http://a/b/c/h")
+        @test resolvereference(base, "g;x=1/./y") == URI("http://a/b/c/g;x=1/y")
+        @test resolvereference(base, "g;x=1/../y") == URI("http://a/b/c/y")
+
+        @test resolvereference(base, "g?y/./x") == URI("http://a/b/c/g?y/./x")
+        @test resolvereference(base, "g?y/../x") == URI("http://a/b/c/g?y/../x")
+        @test resolvereference(base, "g#s/./x") == URI("http://a/b/c/g#s/./x")
+        @test resolvereference(base, "g#s/../x") == URI("http://a/b/c/g#s/../x")
     end
 
     @testset "error testing tools" begin
