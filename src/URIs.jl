@@ -1,7 +1,7 @@
 module URIs
 
 export URI,
-       queryparams, absuri,
+       queryparams, queryparampairs, absuri,
        escapeuri, unescapeuri, escapepath,
        resolvereference
 
@@ -267,6 +267,8 @@ uristring(u::URI) = uristring(u.scheme, u.userinfo, u.host, u.port,
 Returns a `Dict` containing the `query` parameter string parsed according to
 the key=value pair formatting convention.
 
+Note that duplicate query param values are not supported; if needed, use `queryparampairs`.
+
 Note that this is not part of the formal URI grammar, merely a common parsing
 convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
 """
@@ -276,6 +278,24 @@ function queryparams(q::AbstractString)
     Dict{String,String}(unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
                         for (k,v) in ([split(e, "=")..., ""][1:2]
                                       for e in split(q, "&", keepempty=false)))
+end
+
+"""
+    queryparampairs(::URI) -> Vector{Pair{String, String}}
+    queryparampairs(query_str::AbstractString) -> Vector{Pair{String, String}}
+
+Identical to `queryparams`, but returns a `Vector{Pair{String, String}}` containing the `query` parameter string parsed according to
+the key=value pair formatting convention.
+
+Note that this is not part of the formal URI grammar, merely a common parsing
+convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
+"""
+queryparampairs(uri::URI) = queryparampairs(uri.query)
+
+function queryparampairs(q::AbstractString)
+    [unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
+                        for (k,v) in ([split(e, "=")..., ""][1:2]
+                                      for e in split(q, "&", keepempty=false))]
 end
 
 # Validate known URI formats
