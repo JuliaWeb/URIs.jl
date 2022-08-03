@@ -428,11 +428,33 @@ julia> URIs.splitpath("/foo/bar/")
  "bar"
 ```
 """
-function splitpath(path::AbstractString; rstrip_empty_segment::Bool=true)
-    elems = String[]
+splitpath(uri::URI; kws...) = splitpath(uri.path; kws...)
+
+splitpath(path::AbstractString; rstrip_empty_segment::Bool=true) =
+    _splitpath(path; rstrip_empty_segment).segments
+
+function splitfilepath(path::AbstractString; rstrip_empty_segment::Bool=true)
+    (isrootless, segs) = _splitpath(path; rstrip_empty_segment)
+    isabs = ! isrootless
+    @static if Sys.iswindows()
+        if isabs
+            seg1 = segs[1] * Base.Filesystem.path_separator # drive with root
+            segs = segs[2:end]
+            pushfirst!(segs, seg1)
+        end
+    else
+        seg1 = Base.Filesystem.path_separator
+        isabs && pushfirst!(segs, seg1)
+    end
+    segs
+end
+    
+function _splitpath(path::AbstractString; rstrip_empty_segment::Bool=true)
+    segments = String[]
     n = ncodeunits(path)
-    n > 0 || return elems
-    i = path[1] == '/' ? 1 : 0
+    n > 0 || return (; isrootless=true, segments)
+    isrootless = path[1] != '/'
+    i = isrootless ? 0 : 1
     start_ind = i + 1
     while true
         nexti = nextind(path, i)
@@ -444,22 +466,20 @@ function splitpath(path::AbstractString; rstrip_empty_segment::Bool=true)
             break
         end
         if c == '/'
-            push!(elems, path[start_ind:i])
+            push!(segments, path[start_ind:i])
             start_ind = nexti + 1
         end
         i = nexti
     end
-    push!(elems, path[start_ind:i])
-    if rstrip_empty_segment && !isempty(elems) && isempty(elems[end])
+    push!(segments, path[start_ind:i])
+    if rstrip_empty_segment && !isempty(segments) && isempty(segments[end])
         # Trailing slashes do not introduce a final segment by default.  This is
         # technically incompatible with the grammar of RFC3986, but seems to be
         # a common convention, and was present in URIs 1.0
-        pop!(elems)
+        pop!(segments)
     end
-    return elems
+    return (; isrootless, segments)
 end
-
-splitpath(uri::URI; kws...) = splitpath(uri.path; kws...)
 
 """
     URIs.normpath(url)
