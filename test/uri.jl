@@ -444,6 +444,41 @@ urltests = URLTest[
         end
     end
 
+
+    @static if Sys.iswindows()
+    @testset "splitpath" begin
+        @test URIs.splitpath(URI("file:///c:/foo/bar").path) == ["c:", "foo", "bar"]
+        @test URIs.splitpath(URI("file:/c:/foo/bar").path) == ["c:", "foo", "bar"]
+        @test URIs.splitpath(URI("file:c:/foo/bar").path) == ["c:", "foo", "bar"]
+    end
+    else
+    @testset begin
+        @test URIs.splitpath("foo/bar") == ["foo", "bar"]
+        @test URIs.splitpath("/foo/bar") == ["foo", "bar"]
+    end
+    end
+
+    @testset "splitfilepath" begin
+        @static if Sys.iswindows()
+            data = [
+                (; url=URI("file:///c:/foo/bar"), urlpath="/c:/foo/bar", fspath="c:\\foo\\bar", fs_segs=["c:\\", "foo", "bar"]),
+                (; url=URI("file:/c:/foo/bar"), urlpath="/c:/foo/bar", fspath="c:\\foo\\bar", fs_segs=["c:\\", "foo", "bar"]),
+                (; url=URI("file:c:/foo/bar"), urlpath="c:/foo/bar", fspath="c:foo\\bar", fs_segs= ["c:", "foo", "bar"])
+            ]
+        else
+            data = [
+                (; url=URI("file:///foo/bar"), urlpath="/foo/bar", fspath="/foo/bar", fs_segs=["/", "foo", "bar"]),
+                (; url=URI("file:/foo/bar"), urlpath="/foo/bar", fspath="/foo/bar", fs_segs=["/", "foo", "bar"]),
+                (; url=URI("file:foo/bar"), urlpath="foo/bar", fspath="foo/bar", fs_segs= ["foo", "bar"])
+            ]
+        end
+        for (url, urlpath, fspath, fs_segs) in data
+            @test URI(url).path == urlpath
+            @test splitfilepath(urlpath) == fs_segs
+            @test Base.Filesystem.joinpath(fs_segs...) == fspath
+        end
+    end
+
     @testset "Parse" begin
         @test parse(URI, "hdfs://user:password@hdfshost:9000/root/folder/file.csv") == URI(host="hdfshost", path="/root/folder/file.csv", scheme="hdfs", port=9000, userinfo="user:password")
         @test parse(URI, "ssh://testuser@test.com") == URI(scheme = "ssh",  host="test.com", userinfo="testuser")
