@@ -448,7 +448,12 @@ function splitfilepath(path::AbstractString; rstrip_empty_segment::Bool=true)
     end
     segs
 end
-    
+
+function splitfilepath(a::URI; kwargs...)
+    a.scheme == "file" || throw(ArgumentError("a = $a"))
+    splitfilepath(a.path; kwargs...)
+end
+
 function _splitpath(path::AbstractString; rstrip_empty_segment::Bool=true)
     segments = String[]
     n = ncodeunits(path)
