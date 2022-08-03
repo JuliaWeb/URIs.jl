@@ -457,7 +457,7 @@ urltests = URLTest[
         @test URIs.splitpath("/foo/bar") == ["foo", "bar"]
     end
     end
-
+      
     @testset "splitfilepath" begin
         @static if Sys.iswindows()
             data = [
@@ -476,7 +476,10 @@ urltests = URLTest[
             @test URI(url).path == urlpath
             @test splitfilepath(urlpath) == fs_segs
             @test Base.Filesystem.joinpath(fs_segs...) == fspath
+
+            @test splitfilepath(url) == fs_segs
         end
+        @test_throws ArgumentError splitfilepath(URI("http://foo.com"))
     end
 
     @testset "Parse" begin
