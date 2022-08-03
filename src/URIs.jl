@@ -1,7 +1,7 @@
 module URIs
 
 export URI,
-       queryparams, queryparampairs, absuri,
+       queryparams, queryparampairs, absuri, splitfilepath,
        escapeuri, unescapeuri, escapepath,
        resolvereference
 
