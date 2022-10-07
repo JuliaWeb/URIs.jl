@@ -332,8 +332,7 @@ function _bytes end
 _bytes(s::SubArray{UInt8}) = unsafe_wrap(Array, pointer(s), length(s))
 
 _bytes(s::Union{Vector{UInt8}, Base.CodeUnits}) = _bytes(String(s))
-_bytes(s::String) = codeunits(s)
-_bytes(s::SubString{String}) = codeunits(s)
+_bytes(s::AbstractString) = codeunits(s)
 
 _bytes(s::Vector{UInt8}) = s
 
