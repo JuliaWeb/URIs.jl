@@ -298,7 +298,7 @@ convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
 queryparampairs(uri::URI) = queryparampairs(uri.query)
 
 function queryparampairs(q::AbstractString)
-    [unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
+    Pair{String,String}[unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
                         for (k,v) in ([split(e, "=")..., ""][1:2]
                                       for e in split(q, "&", keepempty=false))]
 end
