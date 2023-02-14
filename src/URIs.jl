@@ -694,7 +694,8 @@ end
 @noinline _length_assert() =  @assert false "0 < tid <= v"
 
 function __init__()
-    resize!(empty!(uri_reference_regex), Threads.nthreads())
+    nt = isdefined(Base.Threads, :maxthreadid) ? Threads.maxthreadid() : Threads.nthreads()
+    resize!(empty!(uri_reference_regex), nt)
     return
 end
 
