@@ -405,6 +405,10 @@ urltests = URLTest[
         @test URI(scheme="http", host="google.com", query=Dict()) |> string == "http://google.com"
         @test URI(scheme="http", host="google.com", path="/", fragment="user") == URI("http://google.com/#user")
 
+        @test URI(URI("http://google.com/user")) == URI("http://google.com/user")
+        @test URI(URI("http://google.com/user"); query=["key" => "value"]) == URI("http://google.com/user?key=value")
+        @test URI("http://google.com/user"; query=["key" => "value"]) == URI("http://google.com/user?key=value")
+
         # Precondition error messages refer to the function name (#32)
         @test_throws ArgumentError("URI() requires `scheme in uses_authority || isempty(host)`") URI(; host="example.com")
     end

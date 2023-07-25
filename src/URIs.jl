@@ -86,6 +86,7 @@ function URI(uri::URI; scheme::AbstractString=uri.scheme,
 end
 
 URI(;kw...) = URI(emptyuri; kw...)
+URI(uri::AbstractString; kw...) = URI(URI(uri); kw...)
 
 # Based on regex from RFC 3986:
 # https://tools.ietf.org/html/rfc3986#appendix-B
