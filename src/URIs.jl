@@ -680,6 +680,9 @@ function resolveref_merge(base, ref)
 end
 
 
+Base.download(uri::URI, args...) = download(uristring(uri), args...)
+
+
 function access_threaded(f, v::Vector)
     tid = Threads.threadid()
     0 < tid <= length(v) || _length_assert()
