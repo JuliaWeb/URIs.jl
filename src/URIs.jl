@@ -86,6 +86,7 @@ function URI(uri::URI; scheme::AbstractString=uri.scheme,
 end
 
 URI(;kw...) = URI(emptyuri; kw...)
+URI(str::AbstractString; kw...) = isempty(kw) ? parse(URI, str) : URI(URI(str); kw...)
 
 # Based on regex from RFC 3986:
 # https://tools.ietf.org/html/rfc3986#appendix-B
@@ -142,8 +143,6 @@ end
 
 parse_uri_reference(str; strict = false) =
     parse_uri_reference(SubString(str); strict = false)
-
-URI(str::AbstractString) = parse_uri_reference(str)
 
 Base.parse(::Type{URI}, str::AbstractString) = parse_uri_reference(str)
 
