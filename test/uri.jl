@@ -678,4 +678,10 @@ urltests = URLTest[
         @test_throws ArgumentError("foo() requires `x > 10`") foo(1, 11)
         @test_throws AssertionError("foo() failed to ensure `y > 10`\ny = 1\n10 = 10") foo(11, 1)
     end
+
+    @testset "download" begin
+        f_base = download("https://httpbingo.julialang.org/get")
+        f_uri = download(URI("https://httpbingo.julialang.org/get"))
+        @test read(f_base, String) == read(f_uri, String)
+    end
 end
