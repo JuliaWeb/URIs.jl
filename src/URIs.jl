@@ -367,8 +367,10 @@ encoded within the query part of a URI.
 """
 escapeuri(key, value) = string(escapeuri(key), "=", escapeuri(value))
 escapeuri(key, values::Vector) = escapeuri(key => v for v in values)
-escapeuri(query) = isempty(query) ? absent : join((escapeuri(k, v) for (k,v) in query), "&")
 escapeuri(nt::NamedTuple) = escapeuri(pairs(nt))
+escapeuri(p::Pair) = escapeuri((p,))
+# Fallback method that expects the query argument to iterate key-value pairs
+escapeuri(query) = isempty(query) ? absent : join((escapeuri(k, v) for (k,v) in query), "&")
 
 decodeplus(q) = replace(q, '+' => ' ')
 
