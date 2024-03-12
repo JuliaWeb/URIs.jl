@@ -2,9 +2,11 @@
 
 `URIs` is a Julia package for parsing and working with Uniform Resource
 Identifiers, as defined in [RFC 3986](https://www.ietf.org/rfc/rfc3986.txt).
+It also supports data URI as defined in [RFC 2397](https://datatracker.ietf.org/doc/html/rfc2397).
 
 ## Tutorial
 
+### URI
 ```@meta
 DocTestSetup = quote
     using URIs
@@ -48,6 +50,23 @@ Dict{String,String} with 2 entries:
   "y" => "hi"
 ```
 
+### Data URI
+
+```@meta
+DocTestSetup = quote
+    using URIs
+end
+```
+
+Parsing Data URIs from a string can be done with the [`DataURI`](@ref) constructor:
+
+```jldoctest
+julia> u = DataURI("data:,A%20brief%20note")
+DataURI("data:,A%20brief%20note")
+```
+
+See reference and unit tests for more usage.
+
 ## Reference
 
 ```@docs
@@ -61,5 +80,7 @@ escapepath
 resolvereference
 URIs.splitpath
 Base.isvalid(::URI)
+DataURI
+getdata
 ```
 

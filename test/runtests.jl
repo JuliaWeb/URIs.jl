@@ -3,6 +3,7 @@ using Test
 
 include("uri.jl")
 include("url.jl")
+include("data_uri.jl")
 
 # https://github.com/JuliaWeb/URIs.jl/issues/42
 struct CustomString <: AbstractString
