@@ -4,6 +4,7 @@ export URI,
        queryparams, queryparampairs, absuri, splitfilepath,
        escapeuri, unescapeuri, escapepath,
        resolvereference
+export DataURI, getdata
 
 import Base.==
 
@@ -703,6 +704,7 @@ function __init__()
     return
 end
 
+include("data_uri.jl")
 include("deprecate.jl")
 
 end # module
