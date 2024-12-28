@@ -593,7 +593,7 @@ function Base.joinpath(uri::URI, parts::String...)
         end
     end
 
-    if isempty(uri.path)
+    if isempty(uri.path) && !startswith(path, "/")
         path = "/" * path
     end
     return URI(uri; path=normpath(path))
