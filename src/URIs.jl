@@ -90,7 +90,6 @@ URI(str::AbstractString; kw...) = isempty(kw) ? parse(URI, str) : URI(URI(str); 
 
 # Based on regex from RFC 3986:
 # https://tools.ietf.org/html/rfc3986#appendix-B
-const uri_reference_regex = RegexAndMatchData[]
 function uri_reference_regex_f()
     r = RegexAndMatchData(r"""^
     (?: ([^:/?#]+) :) ?                     # 1. scheme
@@ -106,6 +105,33 @@ function uri_reference_regex_f()
     initialize!(r)
     r
 end
+
+if isdefined(Base, :OncePerTask)
+    const task_local_regex = OncePerTask{RegexAndMatchData}(uri_reference_regex_f)
+else
+    const uri_reference_regex = RegexAndMatchData[]
+    function access_threaded(f, v::Vector)
+        tid = Threads.threadid()
+        0 < tid <= length(v) || _length_assert()
+        if @inbounds isassigned(v, tid)
+            @inbounds x = v[tid]
+        else
+            x = f()
+            @inbounds v[tid] = x
+        end
+        return x
+    end
+    @noinline _length_assert() =  @assert false "0 < tid <= v"
+
+    task_local_regex() = access_threaded(uri_reference_regex_f, uri_reference_regex)
+
+    function __init__()
+        nt = isdefined(Base.Threads, :maxthreadid) ? Threads.maxthreadid() : Threads.nthreads()
+        resize!(empty!(uri_reference_regex), nt)
+        return
+    end
+end
+
 
 """
 https://tools.ietf.org/html/rfc3986#section-3
@@ -123,7 +149,7 @@ https://tools.ietf.org/html/rfc3986#section-4.1
 """
 function parse_uri_reference(str::Union{String, SubString{String}};
                              strict = false)
-    uri_reference_re = access_threaded(uri_reference_regex_f, uri_reference_regex)
+    uri_reference_re = task_local_regex()
     if !exec(uri_reference_re, str)
         throw(ParseError("URI contains invalid character"))
     end
@@ -683,25 +709,6 @@ end
 
 Base.download(uri::URI, args...) = download(uristring(uri), args...)
 
-
-function access_threaded(f, v::Vector)
-    tid = Threads.threadid()
-    0 < tid <= length(v) || _length_assert()
-    if @inbounds isassigned(v, tid)
-        @inbounds x = v[tid]
-    else
-        x = f()
-        @inbounds v[tid] = x
-    end
-    return x
-end
-@noinline _length_assert() =  @assert false "0 < tid <= v"
-
-function __init__()
-    nt = isdefined(Base.Threads, :maxthreadid) ? Threads.maxthreadid() : Threads.nthreads()
-    resize!(empty!(uri_reference_regex), nt)
-    return
-end
 
 include("deprecate.jl")
 
