@@ -533,6 +533,19 @@ urltests = URLTest[
         @test_throws URIs.ParseError URIs.parse_uri("ht!tp://google.com", strict=true)
     end
 
+    @testset "Control Characters" begin
+        bad = [
+            "http://localhost:1337/ HTTP/1.1\r\nFoo: bar\r\nbaz:",
+            "http://example.com/\rpath",
+            "http://example.com/\n"
+        ]
+        for b in bad
+            @test_throws URIs.ParseError parse(URI, b)
+        end
+        @test_throws ArgumentError URI(; scheme="http", host="example.com\n")
+        @test_throws ArgumentError URI(; scheme="http", host="example.com", path="/a\rb")
+    end
+
     @testset "parse(URI, str) - $u" for u in urltests
         if u.isconnect
             if u.shouldthrow
