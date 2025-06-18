@@ -462,7 +462,7 @@ urltests = URLTest[
         @test URIs.splitpath("/foo/bar") == ["foo", "bar"]
     end
     end
-      
+
     @testset "splitfilepath" begin
         @static if Sys.iswindows()
             data = [
@@ -610,6 +610,9 @@ urltests = URLTest[
         @test joinpath(URIs.URI("http://a.b.c/d/f"), "/b", "c") == URI("http://a.b.c/b/c")
         @test joinpath(URIs.URI("http://a.b.c/"), "b", "c") == URI("http://a.b.c/b/c")
         @test joinpath(URIs.URI("http://a.b.c"), "b", "c") == URI("http://a.b.c/b/c")
+        @test joinpath(URIs.URI("http://a.b.c"), "/b/c/") == URI("http://a.b.c/b/c/")
+        @test joinpath(URIs.URI("http://a.b.c"), "/b/c") == URI("http://a.b.c/b/c")
+        @test joinpath(URIs.URI("http://a.b.c"), "/b", "c") == URI("http://a.b.c/b/c")
     end
 
     @testset "resolvereference" begin
