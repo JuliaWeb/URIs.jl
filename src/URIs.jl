@@ -7,6 +7,15 @@ export URI,
 
 import Base.==
 
+# Reject carriage return and line feed characters which can lead to CRLF injection
+const _CTL = Set(['\r', '\n'])
+
+function _reject_ctl(s::AbstractString, field::Symbol)
+    if any(c -> c in _CTL, s)
+        throw(ArgumentError("URI $field contains control characters; see RFC 3986 & RFC 9110"))
+    end
+end
+
 const DEBUG_LEVEL = Ref(0)
 include("debug.jl")
 include("parseutils.jl")
@@ -82,6 +91,17 @@ function URI(uri::URI; scheme::AbstractString=uri.scheme,
     end
     querys = query isa AbstractString ? query : escapeuri(query)
 
+    # reject control characters in all components
+    !isabsent(scheme)    && _reject_ctl(scheme, :scheme)
+    !isabsent(userinfo)  && _reject_ctl(userinfo, :userinfo)
+    !isabsent(host)      && _reject_ctl(host, :host)
+    if port !== absent
+        _reject_ctl(port, :port)
+    end
+    !isabsent(path)      && _reject_ctl(path, :path)
+    !isabsent(querys)    && _reject_ctl(querys, :query)
+    !isabsent(fragment)  && _reject_ctl(fragment, :fragment)
+
     return URI(nostring, scheme, userinfo, host, port, path, querys, fragment)
 end
 
@@ -149,6 +169,12 @@ https://tools.ietf.org/html/rfc3986#section-4.1
 """
 function parse_uri_reference(str::Union{String, SubString{String}};
                              strict = false)
+    try
+        _reject_ctl(str, :uri)
+    catch e
+        e isa ArgumentError && throw(ParseError(e.msg))
+        rethrow()
+    end
     uri_reference_re = task_local_regex()
     if !exec(uri_reference_re, str)
         throw(ParseError("URI contains invalid character"))
