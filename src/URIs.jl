@@ -1,5 +1,7 @@
 module URIs
 
+# Hello world
+
 export URI,
        queryparams, queryparampairs, absuri, splitfilepath,
        escapeuri, unescapeuri, escapepath,
