@@ -1,10 +1,21 @@
-good_patterns = ["foo", "foo.bar"]
+good_patterns = ["foo", "foo.bar", "oldcommit..newcommit"]
 
 for pattern in good_patterns
     @test !URIs.contains_path_traversal(pattern)
 end
 
-bad_patterns = ["../", "..\\", "/..", "\\..", "./", ".\\", "/./", "\\.\\"]
+bad_patterns = [
+    "..foo",
+    "foo.."
+    "../",
+    "..\\",
+    "/..",
+    "\\..",
+    "./",
+    ".\\",
+    "/./",
+    "\\.\\",
+]
 
 for pattern in bad_patterns
     @test URIs.contains_path_traversal(pattern)
