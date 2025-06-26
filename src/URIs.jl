@@ -19,7 +19,6 @@ end
 const DEBUG_LEVEL = Ref(0)
 include("debug.jl")
 include("parseutils.jl")
-include("utils.jl")
 
 struct ParseError <: Exception
     msg::String
@@ -738,5 +737,6 @@ Base.download(uri::URI, args...) = download(uristring(uri), args...)
 
 
 include("deprecate.jl")
+include("utils.jl")
 
 end # module
