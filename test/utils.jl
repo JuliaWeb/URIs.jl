@@ -5,16 +5,16 @@ for pattern in good_patterns
 end
 
 bad_patterns = [
-    "..foo",
-    "foo.."
-    "../",
-    "..\\",
-    "/..",
-    "\\..",
-    "./",
-    ".\\",
-    "/./",
-    "\\.\\",
+    "..foo"   ,
+    "foo.."   ,
+    "../"     ,
+    "..\\"    ,
+    "/.."     ,
+    "\\.."    ,
+    "./"      ,
+    ".\\"     ,
+    "/./"     ,
+    "\\.\\"   ,
 ]
 
 for pattern in bad_patterns
