@@ -1,4 +1,5 @@
-function contains_path_traversal(url)
+contains_path_traversal(url::URI) = contains_path_traversal(url.path)
+function contains_path_traversal(url::AbstractString)
     # Patterns:
     # ../, ..\, /.., \.., ./, .\, /./, \.\
     PATH_TRAVERSAL = r"(?:^\.{2,}|\.{2,}$|\.{2,}[\/\\]|\.{1,}[\/\\]|[\/\\]\.{2,}|[\/\\]\.{1,}[\/\\])"
