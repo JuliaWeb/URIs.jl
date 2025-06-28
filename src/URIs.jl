@@ -737,5 +737,6 @@ Base.download(uri::URI, args...) = download(uristring(uri), args...)
 
 
 include("deprecate.jl")
+include("utils.jl")
 
 end # module
