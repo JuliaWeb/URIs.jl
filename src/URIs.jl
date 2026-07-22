@@ -502,15 +502,11 @@ equivalent. To preserve any final empty path segment, set
 # Examples
 
 ```jldoctest
-julia> URIs.splitpath(URI("http://example.com/foo/bar?a=b&c=d"))
-2-element Array{String,1}:
- "foo"
- "bar"
+julia> URIs.splitpath(URI("http://example.com/foo/bar?a=b&c=d")) == ["foo", "bar"]
+true
 
-julia> URIs.splitpath("/foo/bar/")
-2-element Array{String,1}:
- "foo"
- "bar"
+julia> URIs.splitpath("/foo/bar/") == ["foo", "bar"]
+true
 ```
 """
 splitpath(uri::URI; kws...) = splitpath(uri.path; kws...)

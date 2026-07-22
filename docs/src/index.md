@@ -42,10 +42,8 @@ is provided:
 julia> u = URI("http://example.com/path?x=1&y=hi")
 URI("http://example.com/path?x=1&y=hi")
 
-julia> queryparams(u)
-Dict{String,String} with 2 entries:
-  "x" => "1"
-  "y" => "hi"
+julia> queryparams(u) == Dict("x" => "1", "y" => "hi")
+true
 ```
 
 ## Reference
@@ -62,4 +60,3 @@ resolvereference
 URIs.splitpath
 Base.isvalid(::URI)
 ```
-
