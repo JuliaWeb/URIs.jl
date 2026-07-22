@@ -172,7 +172,12 @@ function parse_uri_reference(str::Union{String, SubString{String}};
     try
         _reject_ctl(str, :uri)
     catch e
-        e isa ArgumentError && throw(ParseError(e.msg))
+        # Keep this path concrete for ahead-of-time compilation. Reading an
+        # ArgumentError's abstractly typed message makes the compiler retain
+        # generic string conversion even though _reject_ctl owns the message.
+        e isa ArgumentError && throw(ParseError(
+            "URI uri contains control characters; see RFC 3986 & RFC 9110",
+        ))
         rethrow()
     end
     uri_reference_re = task_local_regex()
@@ -313,8 +318,12 @@ end
 
 uristring(a...) = String(take!(formaturi(IOBuffer(), a...)))
 
-uristring(u::URI) = uristring(u.scheme, u.userinfo, u.host, u.port,
-                              u.path, u.query, u.fragment)
+function uristring(u::URI)
+    io = IOBuffer()
+    formaturi(io, u.scheme, u.userinfo, u.host, u.port,
+              u.path, u.query, u.fragment)
+    return String(take!(io))
+end
 
 """
     queryparams(::URI) -> Dict
@@ -331,9 +340,12 @@ convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
 queryparams(uri::URI) = queryparams(uri.query)
 
 function queryparams(q::AbstractString)
-    Dict{String,String}(unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
-                        for (k,v) in ([split(e, "=")..., ""][1:2]
-                                      for e in split(q, "&", keepempty=false)))
+    params = Dict{String,String}()
+    for entry in split(q, "&"; keepempty=false)
+        pair = _queryparampair(entry)
+        params[pair.first] = pair.second
+    end
+    return params
 end
 
 """
@@ -349,9 +361,25 @@ convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
 queryparampairs(uri::URI) = queryparampairs(uri.query)
 
 function queryparampairs(q::AbstractString)
-    Pair{String,String}[unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
-                        for (k,v) in ([split(e, "=")..., ""][1:2]
-                                      for e in split(q, "&", keepempty=false))]
+    params = Pair{String,String}[]
+    for entry in split(q, "&"; keepempty=false)
+        push!(params, _queryparampair(entry))
+    end
+    return params
+end
+
+function _queryparampair(entry::AbstractString)
+    separator = findfirst('=', entry)
+    if separator === nothing
+        key = String(entry)
+        value = ""
+    else
+        key = separator == firstindex(entry) ? "" :
+            String(SubString(entry, firstindex(entry), prevind(entry, separator)))
+        value = separator == lastindex(entry) ? "" :
+            String(SubString(entry, nextind(entry, separator)))
+    end
+    return unescapeuri(decodeplus(key)) => unescapeuri(decodeplus(value))
 end
 
 # Validate known URI formats
