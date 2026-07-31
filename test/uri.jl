@@ -520,8 +520,10 @@ urltests = URLTest[
         @test queryparams(URI("http://example.com"))::Dict{String,String} == Dict()
         @test queryparams(URI("https://httphost/path1/path2;paramstring?q=a&p=r#frag")) == Dict("q"=>"a","p"=>"r")
         @test queryparams(URI("https://foo.net/?q=a&malformed")) == Dict("q"=>"a","malformed"=>"")
+        @test queryparams("token=a=b") == Dict("token" => "a=b")
         @test queryparampairs(URI("http://example.com"))::Vector{Pair{String, String}} == Vector()
         @test queryparampairs(URI("http://example.com?a=b&a=c&a=d")) == ["a" => "b", "a" => "c", "a" => "d"]
+        @test queryparampairs("token=a=b") == ["token" => "a=b"]
     end
 
     @testset "Parse Errors" begin
