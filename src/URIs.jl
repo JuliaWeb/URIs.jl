@@ -656,6 +656,10 @@ end
     joinpath(uri::URI, path::AbstractString) -> URI
 
 Join the path component of URI and other parts.
+
+If `uri` has no authority (host) component, the resulting path must not begin
+with `"//"`, since such a URI cannot be represented (RFC 3986 Section 3.3);
+an `ArgumentError` is thrown in that case.
 """
 function Base.joinpath(uri::URI, parts::String...)
     path = uri.path
@@ -669,10 +673,15 @@ function Base.joinpath(uri::URI, parts::String...)
         end
     end
 
-    if isempty(uri.path)
+    if isempty(uri.path) && !startswith(path, "/")
         path = "/" * path
     end
-    return URI(uri; path=normpath(path))
+    path = normpath(path)
+    if isabsent(uri.host) && startswith(path, "//")
+        throw(ArgumentError("URI without authority (host) cannot have a path " *
+                            "beginning with \"//\" (RFC 3986 Section 3.3): $(repr(path))"))
+    end
+    return URI(uri; path=path)
 end
 
 """
