@@ -7,6 +7,15 @@ export URI,
 
 import Base.==
 
+# Reject carriage return and line feed characters which can lead to CRLF injection
+const _CTL = Set(['\r', '\n'])
+
+function _reject_ctl(s::AbstractString, field::Symbol)
+    if any(c -> c in _CTL, s)
+        throw(ArgumentError("URI $field contains control characters; see RFC 3986 & RFC 9110"))
+    end
+end
+
 const DEBUG_LEVEL = Ref(0)
 include("debug.jl")
 include("parseutils.jl")
@@ -82,6 +91,17 @@ function URI(uri::URI; scheme::AbstractString=uri.scheme,
     end
     querys = query isa AbstractString ? query : escapeuri(query)
 
+    # reject control characters in all components
+    !isabsent(scheme)    && _reject_ctl(scheme, :scheme)
+    !isabsent(userinfo)  && _reject_ctl(userinfo, :userinfo)
+    !isabsent(host)      && _reject_ctl(host, :host)
+    if port !== absent
+        _reject_ctl(port, :port)
+    end
+    !isabsent(path)      && _reject_ctl(path, :path)
+    !isabsent(querys)    && _reject_ctl(querys, :query)
+    !isabsent(fragment)  && _reject_ctl(fragment, :fragment)
+
     return URI(nostring, scheme, userinfo, host, port, path, querys, fragment)
 end
 
@@ -90,7 +110,6 @@ URI(str::AbstractString; kw...) = isempty(kw) ? parse(URI, str) : URI(URI(str); 
 
 # Based on regex from RFC 3986:
 # https://tools.ietf.org/html/rfc3986#appendix-B
-const uri_reference_regex = RegexAndMatchData[]
 function uri_reference_regex_f()
     r = RegexAndMatchData(r"""^
     (?: ([^:/?#]+) :) ?                     # 1. scheme
@@ -106,6 +125,33 @@ function uri_reference_regex_f()
     initialize!(r)
     r
 end
+
+if isdefined(Base, :OncePerTask)
+    const task_local_regex = OncePerTask{RegexAndMatchData}(uri_reference_regex_f)
+else
+    const uri_reference_regex = RegexAndMatchData[]
+    function access_threaded(f, v::Vector)
+        tid = Threads.threadid()
+        0 < tid <= length(v) || _length_assert()
+        if @inbounds isassigned(v, tid)
+            @inbounds x = v[tid]
+        else
+            x = f()
+            @inbounds v[tid] = x
+        end
+        return x
+    end
+    @noinline _length_assert() =  @assert false "0 < tid <= v"
+
+    task_local_regex() = access_threaded(uri_reference_regex_f, uri_reference_regex)
+
+    function __init__()
+        nt = isdefined(Base.Threads, :maxthreadid) ? Threads.maxthreadid() : Threads.nthreads()
+        resize!(empty!(uri_reference_regex), nt)
+        return
+    end
+end
+
 
 """
 https://tools.ietf.org/html/rfc3986#section-3
@@ -123,7 +169,18 @@ https://tools.ietf.org/html/rfc3986#section-4.1
 """
 function parse_uri_reference(str::Union{String, SubString{String}};
                              strict = false)
-    uri_reference_re = access_threaded(uri_reference_regex_f, uri_reference_regex)
+    try
+        _reject_ctl(str, :uri)
+    catch e
+        # Keep this path concrete for ahead-of-time compilation. Reading an
+        # ArgumentError's abstractly typed message makes the compiler retain
+        # generic string conversion even though _reject_ctl owns the message.
+        e isa ArgumentError && throw(ParseError(
+            "URI uri contains control characters; see RFC 3986 & RFC 9110",
+        ))
+        rethrow()
+    end
+    uri_reference_re = task_local_regex()
     if !exec(uri_reference_re, str)
         throw(ParseError("URI contains invalid character"))
     end
@@ -261,8 +318,12 @@ end
 
 uristring(a...) = String(take!(formaturi(IOBuffer(), a...)))
 
-uristring(u::URI) = uristring(u.scheme, u.userinfo, u.host, u.port,
-                              u.path, u.query, u.fragment)
+function uristring(u::URI)
+    io = IOBuffer()
+    formaturi(io, u.scheme, u.userinfo, u.host, u.port,
+              u.path, u.query, u.fragment)
+    return String(take!(io))
+end
 
 """
     queryparams(::URI) -> Dict
@@ -279,9 +340,12 @@ convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
 queryparams(uri::URI) = queryparams(uri.query)
 
 function queryparams(q::AbstractString)
-    Dict{String,String}(unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
-                        for (k,v) in ([split(e, "=")..., ""][1:2]
-                                      for e in split(q, "&", keepempty=false)))
+    params = Dict{String,String}()
+    for entry in split(q, "&"; keepempty=false)
+        pair = _queryparampair(entry)
+        params[pair.first] = pair.second
+    end
+    return params
 end
 
 """
@@ -297,9 +361,25 @@ convention — see [RFC 3986](https://tools.ietf.org/html/rfc3986#section-3.4).
 queryparampairs(uri::URI) = queryparampairs(uri.query)
 
 function queryparampairs(q::AbstractString)
-    Pair{String,String}[unescapeuri(decodeplus(k)) => unescapeuri(decodeplus(v))
-                        for (k,v) in ([split(e, "=")..., ""][1:2]
-                                      for e in split(q, "&", keepempty=false))]
+    params = Pair{String,String}[]
+    for entry in split(q, "&"; keepempty=false)
+        push!(params, _queryparampair(entry))
+    end
+    return params
+end
+
+function _queryparampair(entry::AbstractString)
+    separator = findfirst('=', entry)
+    if separator === nothing
+        key = String(entry)
+        value = ""
+    else
+        key = separator == firstindex(entry) ? "" :
+            String(SubString(entry, firstindex(entry), prevind(entry, separator)))
+        value = separator == lastindex(entry) ? "" :
+            String(SubString(entry, nextind(entry, separator)))
+    end
+    return unescapeuri(decodeplus(key)) => unescapeuri(decodeplus(value))
 end
 
 # Validate known URI formats
@@ -422,15 +502,11 @@ equivalent. To preserve any final empty path segment, set
 # Examples
 
 ```jldoctest
-julia> URIs.splitpath(URI("http://example.com/foo/bar?a=b&c=d"))
-2-element Array{String,1}:
- "foo"
- "bar"
+julia> URIs.splitpath(URI("http://example.com/foo/bar?a=b&c=d")) == ["foo", "bar"]
+true
 
-julia> URIs.splitpath("/foo/bar/")
-2-element Array{String,1}:
- "foo"
- "bar"
+julia> URIs.splitpath("/foo/bar/") == ["foo", "bar"]
+true
 ```
 """
 splitpath(uri::URI; kws...) = splitpath(uri.path; kws...)
@@ -684,25 +760,7 @@ end
 Base.download(uri::URI, args...) = download(uristring(uri), args...)
 
 
-function access_threaded(f, v::Vector)
-    tid = Threads.threadid()
-    0 < tid <= length(v) || _length_assert()
-    if @inbounds isassigned(v, tid)
-        @inbounds x = v[tid]
-    else
-        x = f()
-        @inbounds v[tid] = x
-    end
-    return x
-end
-@noinline _length_assert() =  @assert false "0 < tid <= v"
-
-function __init__()
-    nt = isdefined(Base.Threads, :maxthreadid) ? Threads.maxthreadid() : Threads.nthreads()
-    resize!(empty!(uri_reference_regex), nt)
-    return
-end
-
 include("deprecate.jl")
+include("utils.jl")
 
 end # module

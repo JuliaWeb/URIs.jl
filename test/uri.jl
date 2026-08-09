@@ -520,8 +520,10 @@ urltests = URLTest[
         @test queryparams(URI("http://example.com"))::Dict{String,String} == Dict()
         @test queryparams(URI("https://httphost/path1/path2;paramstring?q=a&p=r#frag")) == Dict("q"=>"a","p"=>"r")
         @test queryparams(URI("https://foo.net/?q=a&malformed")) == Dict("q"=>"a","malformed"=>"")
+        @test queryparams("token=a=b") == Dict("token" => "a=b")
         @test queryparampairs(URI("http://example.com"))::Vector{Pair{String, String}} == Vector()
         @test queryparampairs(URI("http://example.com?a=b&a=c&a=d")) == ["a" => "b", "a" => "c", "a" => "d"]
+        @test queryparampairs("token=a=b") == ["token" => "a=b"]
     end
 
     @testset "Parse Errors" begin
@@ -531,6 +533,19 @@ urltests = URLTest[
         @test_throws URIs.ParseError URIs.parse_uri(".google.com", strict=true)
         # Unexpected character after scheme
         @test_throws URIs.ParseError URIs.parse_uri("ht!tp://google.com", strict=true)
+    end
+
+    @testset "Control Characters" begin
+        bad = [
+            "http://localhost:1337/ HTTP/1.1\r\nFoo: bar\r\nbaz:",
+            "http://example.com/\rpath",
+            "http://example.com/\n"
+        ]
+        for b in bad
+            @test_throws URIs.ParseError parse(URI, b)
+        end
+        @test_throws ArgumentError URI(; scheme="http", host="example.com\n")
+        @test_throws ArgumentError URI(; scheme="http", host="example.com", path="/a\rb")
     end
 
     @testset "parse(URI, str) - $u" for u in urltests

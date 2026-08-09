@@ -1,5 +1,7 @@
 using Documenter, URIs
 
+DocMeta.setdocmeta!(URIs, :DocTestSetup, :(using URIs); recursive=true)
+
 makedocs(;
     modules=[URIs],
     format=Documenter.HTML(),
