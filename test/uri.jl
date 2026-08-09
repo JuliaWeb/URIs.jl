@@ -615,6 +615,26 @@ urltests = URLTest[
         @test joinpath(URIs.URI("http://a.b.c"), "/b/c/") == URI("http://a.b.c/b/c/")
         @test joinpath(URIs.URI("http://a.b.c"), "/b/c") == URI("http://a.b.c/b/c")
         @test joinpath(URIs.URI("http://a.b.c"), "/b", "c") == URI("http://a.b.c/b/c")
+
+        # absolute paths joined to URIs without an authority (host) component
+        @test string(joinpath(URIs.URI("file:"), "/a/b/c")) == "file:/a/b/c"
+        @test string(joinpath(URIs.URI("file://"), "/a/b/c")) == "file:///a/b/c"
+        @test string(joinpath(URIs.URI(), "/a/b")) == "/a/b"
+        # a path beginning with "//" cannot be represented without an authority
+        # component (RFC 3986 Section 3.3)
+        @test_throws ArgumentError joinpath(URIs.URI("file:"), "//server/share")
+        @test_throws ArgumentError joinpath(URIs.URI(), "//server/share")
+        # with an authority component (even an empty one), "//" paths are fine
+        @test string(joinpath(URIs.URI("file://"), "//server/share")) == "file:////server/share"
+        @test string(joinpath(URIs.URI("http://a.b.c"), "//b/c")) == "http://a.b.c//b/c"
+        # results must round-trip through their string representation
+        for u in (joinpath(URIs.URI("file:"), "/a/b/c"),
+                  joinpath(URIs.URI("file://"), "/a/b/c"),
+                  joinpath(URIs.URI(), "/a/b"),
+                  joinpath(URIs.URI("file://"), "//server/share"),
+                  joinpath(URIs.URI("http://a.b.c"), "//b/c"))
+            @test URI(string(u)) == u
+        end
     end
 
     @testset "resolvereference" begin
