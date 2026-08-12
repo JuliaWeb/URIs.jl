@@ -98,18 +98,18 @@ function URI(uri::URI; scheme::Union{Nothing,AbstractString}=uri.scheme,
     path = something(path, absent)
     fragment = something(fragment, absent)
 
-    @require isempty(host) || host[end] != '/' "`host` must not end with '/'"
-    @require !isempty(host) || port === nothing || isempty(port) "`port` requires a non-empty `host`"
-    @require !isabsent(host) || isabsent(userinfo) "`userinfo` requires an authority component"
-    @require !(scheme in ["http", "https"]) || isempty(path) || path[1] == '/' "`path` for an HTTP URI must be empty or start with '/'"
-    @require !isabsent(path) || !isabsent(query) || isabsent(fragment) "`fragment` requires a `path` or `query` component"
-
     if port === nothing
         port = absent
     elseif port !== absent
         port = string(port)
     end
     querys = query === nothing ? absent : query isa AbstractString ? query : escapeuri(query)
+
+    @require isempty(host) || host[end] != '/' "`host` must not end with '/'"
+    @require !isabsent(host) || isabsent(port) "`port` requires an authority component"
+    @require !isabsent(host) || isabsent(userinfo) "`userinfo` requires an authority component"
+    @require isabsent(host) || isempty(path) || startswith(path, "/") "`path` with an authority component must be empty or start with '/'"
+    @require !isabsent(host) || !startswith(path, "//") "`path` without an authority component must not start with '//'"
 
     # reject control characters in all components
     !isabsent(scheme)    && _reject_ctl(scheme, :scheme)

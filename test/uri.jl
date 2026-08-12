@@ -420,13 +420,14 @@ urltests = URLTest[
         @test URI(source; query=nothing) == URI("custom://user@example.com:8080/page#fragment")
         @test URI(source; fragment=nothing) == URI("custom://user@example.com:8080/page?query")
         @test string(URI("https://example.com/page?query#fragment"; query="", fragment="")) == "https://example.com/page?#"
+        @test URI(URI("#fragment")) == URI("#fragment")
 
         # Generic URI syntax permits authorities for arbitrary schemes.
         @test URI(URI("postgresql://localhost:5432/postgres"); userinfo="user:password") ==
               URI("postgresql://user:password@localhost:5432/postgres")
 
         # Precondition error messages refer to the function and component names (#26, #32).
-        @test_throws ArgumentError("URI() requires `path` for an HTTP URI must be empty or start with '/'") URI(; scheme="https", host="example.com", path="relative")
+        @test_throws ArgumentError("URI() requires `path` with an authority component must be empty or start with '/'") URI(; scheme="https", host="example.com", path="relative")
     end
 
     @testset "URIs.splitpath" begin
