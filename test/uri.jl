@@ -346,15 +346,7 @@ urltests = URLTest[
      ), URLTest("ipv6 address with Zone ID, but '%' is not percent-encoded"
      ,"http://[fe80::a%eth0]/"
      ,false
-         ,(Offset(1, 4) # UF_SCHEMA
-         ,Offset(0, 0) # UF_USERINFO
-         ,Offset(9,12) # UF_HOST
-         ,Offset(0, 0) # UF_PORT
-         ,Offset(22, 1) # UF_PATH
-         ,Offset(0, 0) # UF_QUERY
-         ,Offset(0, 0) # UF_FRAGMENT
-         )
-     ,false
+     ,true
      ), URLTest("ipv6 address ending with '%'"
      ,"http://[fe80::a%]/"
      ,false
@@ -370,27 +362,11 @@ urltests = URLTest[
      ), URLTest("tab in URL"
      ,"/foo\tbar/"
      ,false
-         ,(Offset(0, 0) # UF_SCHEMA
-         ,Offset(0, 0) # UF_USERINFO
-         ,Offset(0, 0) # UF_HOST
-         ,Offset(0, 0) # UF_PORT
-         ,Offset(1, 9) # UF_PATH
-         ,Offset(0, 0) # UF_QUERY
-         ,Offset(0, 0) # UF_FRAGMENT
-         )
-     ,false
+     ,true
      ), URLTest("form feed in URL"
      ,"/foo\fbar/"
      ,false
-         ,(Offset(0, 0) # UF_SCHEMA
-         ,Offset(0, 0) # UF_USERINFO
-         ,Offset(0, 0) # UF_HOST
-         ,Offset(0, 0) # UF_PORT
-         ,Offset(1, 9) # UF_PATH
-         ,Offset(0, 0) # UF_QUERY
-         ,Offset(0, 0) # UF_FRAGMENT
-         )
-     ,false
+     ,true
      )
 ]
 
@@ -535,17 +511,45 @@ urltests = URLTest[
         @test_throws URIs.ParseError URIs.parse_uri("ht!tp://google.com", strict=true)
     end
 
-    @testset "Control Characters" begin
+    @testset "Forbidden ASCII Characters" begin
         bad = [
             "http://localhost:1337/ HTTP/1.1\r\nFoo: bar\r\nbaz:",
             "http://example.com/\rpath",
-            "http://example.com/\n"
+            "http://example.com/\n",
+            "http://example.com/a path",
+            "http://exam\tple.com/",
+            "http://example.com/a\fpath",
+            "http://example.com/a\x7fpath",
         ]
         for b in bad
             @test_throws URIs.ParseError parse(URI, b)
         end
         @test_throws ArgumentError URI(; scheme="http", host="example.com\n")
         @test_throws ArgumentError URI(; scheme="http", host="example.com", path="/a\rb")
+        @test_throws ArgumentError URI(; scheme="http", host="example.com", path="/a b")
+    end
+
+    @testset "Invalid Authorities" begin
+        @test_throws URIs.ParseError URI("http://foo@127.0.0.1 @test.com:8080/test")
+        @test_throws URIs.ParseError URI("http://a:b@@hostname:443/")
+        @test_throws URIs.ParseError URI("http://a%GG@hostname/")
+        @test_throws URIs.ParseError URI("//foo.com:bar")
+        @test_throws URIs.ParseError URI("http://example.com:80a/")
+        @test_throws URIs.ParseError URI("http://example.com:\u0661/")
+        for host in ("foo\\bar", "foo|bar", "foo{bar}", "foo]bar", "foo%GGbar")
+            @test_throws URIs.ParseError URI("http://$host/")
+        end
+        @test URI("http://a%40b@foo%41.com/").userinfo == "a%40b"
+        @test URI("http://a%40b@foo%41.com/").host == "foo%41.com"
+        @test URI("http://[fe80::a%25eth0]/").host == "fe80::a%25eth0"
+        @test URI("http://🍕.com/").host == "🍕.com" # Unicode policy is tracked by #41.
+        @test URI("//foo.com:").port == ""
+        @test_throws ArgumentError URI(; scheme="http", userinfo="a@b", host="foo.com")
+        @test_throws ArgumentError URI(; scheme="http", userinfo="a%GG", host="foo.com")
+        @test_throws ArgumentError URI(; scheme="http", host="foo@bar")
+        @test_throws ArgumentError URI(; scheme="http", host="foo%GGbar")
+        @test_throws ArgumentError URI(; scheme="http", host="foo.com", port="bar")
+        @test URI(; scheme="http", host="foo.com", port="") == URI("http://foo.com:")
     end
 
     @testset "parse(URI, str) - $u" for u in urltests
