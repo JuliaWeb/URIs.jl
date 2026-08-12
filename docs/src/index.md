@@ -46,6 +46,20 @@ julia> queryparams(u) == Dict("x" => "1", "y" => "hi")
 true
 ```
 
+A URI can be copied with selected components replaced. Use `nothing` to remove
+a component:
+
+```jldoctest
+julia> u = URI("https://example.com/page?x=1#section")
+URI("https://example.com/page?x=1#section")
+
+julia> URI(u; fragment=nothing)
+URI("https://example.com/page?x=1")
+
+julia> URI(u; query=[queryparampairs(u); "y" => "hello world"])
+URI("https://example.com/page?x=1&y=hello%20world#section")
+```
+
 ## Reference
 
 ```@docs

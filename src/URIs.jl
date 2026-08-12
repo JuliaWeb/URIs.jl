@@ -46,8 +46,7 @@ values passed as the `query` part.
 
 When constructing a `URI` from a `String`, you need to ensure that the string is correctly percent encoded already.
 
-The `URI` struct stores the complete URI in the `uri::String` field and the
-component parts in the following `SubString` fields:
+The `URI` struct stores the component parts in the following `SubString` fields:
   * `scheme`, e.g. `"http"` or `"https"`
   * `userinfo`, e.g. `"username:password"`
   * `host` e.g. `"julialang.org"`
@@ -55,6 +54,10 @@ component parts in the following `SubString` fields:
   * `path` e.g `"/"`
   * `query` e.g. `"Foo=1&Bar=2"`
   * `fragment`
+
+The `uri` field caches the original input string when one is available. It can
+be empty for a URI built or updated from components. Use `string(uri)` to get
+the complete URI string.
 
 The `queryparams(::URI)` function returns a `Dict` containing the `query`.
 
