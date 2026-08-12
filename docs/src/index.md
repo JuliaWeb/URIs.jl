@@ -44,6 +44,11 @@ URI("http://example.com/path?x=1&y=hi")
 
 julia> queryparams(u) == Dict("x" => "1", "y" => "hi")
 true
+
+julia> queryparampairs(URI("https://example.com/?x=1&x=2"))
+2-element Vector{Pair{String, String}}:
+ "x" => "1"
+ "x" => "2"
 ```
 
 A URI can be copied with selected components replaced. Use `nothing` to remove

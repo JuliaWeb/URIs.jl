@@ -514,6 +514,9 @@ Splits the path into component segments based on `/`, according to
 http://tools.ietf.org/html/rfc3986#section-3.3. Any fragment and query parts of
 the string are ignored if present.
 
+An `AbstractString` argument is treated as a path, not as a complete URI. Wrap
+a complete URI string in `URI(...)` to split only its path component.
+
 A final empty path segment (trailing '/') is removed, if present. This is
 technically incompatible with the segment grammar of RFC3986, but it seems to
 be a common recommendation to make paths with and without a trailing slash
@@ -677,6 +680,10 @@ end
     joinpath(uri::URI, path::AbstractString) -> URI
 
 Join the path component of URI and other parts.
+
+This follows filesystem-style path joining and appends a relative part to the
+current path. Use [`resolvereference`](@ref) when resolving a URI reference
+against a base URI, where the last path segment can be replaced.
 
 If `uri` has no authority (host) component, the resulting path must not begin
 with `"//"`, since such a URI cannot be represented (RFC 3986 Section 3.3);
