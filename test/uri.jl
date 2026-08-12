@@ -410,8 +410,23 @@ urltests = URLTest[
         @test URI("http://google.com/user"; query=["key" => "value"]) == URI("http://google.com/user?key=value")
         @test URI("http://google.com/user"; query="key" => "value") == URI("http://google.com/user?key=value")
 
-        # Precondition error messages refer to the function name (#32)
-        @test_throws ArgumentError("URI() requires `scheme in uses_authority || isempty(host)`") URI(; host="example.com")
+        # `nothing` removes a component, while `""` keeps an empty component.
+        source = URI("custom://user@example.com:8080/page?query#fragment")
+        @test URI(source; scheme=nothing) == URI("//user@example.com:8080/page?query#fragment")
+        @test URI(source; userinfo=nothing) == URI("custom://example.com:8080/page?query#fragment")
+        @test URI(source; userinfo=nothing, host=nothing, port=nothing) == URI("custom:/page?query#fragment")
+        @test URI(source; port=nothing) == URI("custom://user@example.com/page?query#fragment")
+        @test URI(source; path=nothing) == URI("custom://user@example.com:8080?query#fragment")
+        @test URI(source; query=nothing) == URI("custom://user@example.com:8080/page#fragment")
+        @test URI(source; fragment=nothing) == URI("custom://user@example.com:8080/page?query")
+        @test string(URI("https://example.com/page?query#fragment"; query="", fragment="")) == "https://example.com/page?#"
+
+        # Generic URI syntax permits authorities for arbitrary schemes.
+        @test URI(URI("postgresql://localhost:5432/postgres"); userinfo="user:password") ==
+              URI("postgresql://user:password@localhost:5432/postgres")
+
+        # Precondition error messages refer to the function and component names (#26, #32).
+        @test_throws ArgumentError("URI() requires `path` for an HTTP URI must be empty or start with '/'") URI(; scheme="https", host="example.com", path="relative")
     end
 
     @testset "URIs.splitpath" begin
