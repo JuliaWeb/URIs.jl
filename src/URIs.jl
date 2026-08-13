@@ -7,13 +7,49 @@ export URI,
 
 import Base.==
 
-# Reject carriage return and line feed characters which can lead to CRLF injection
-const _CTL = Set(['\r', '\n'])
+_is_forbidden_ascii(c::Char) = c <= ' ' || c == '\x7f'
 
-function _reject_ctl(s::AbstractString, field::Symbol)
-    if any(c -> c in _CTL, s)
-        throw(ArgumentError("URI $field contains control characters; see RFC 3986 & RFC 9110"))
+function _reject_forbidden_ascii(s::AbstractString, field::Symbol)
+    if any(_is_forbidden_ascii, s)
+        throw(ArgumentError("URI $field contains raw whitespace or control characters; see RFC 3986"))
     end
+end
+
+_is_ascii_digit(c::Char) = '0' <= c <= '9'
+_is_ascii_alpha(c::Char) = 'A' <= c <= 'Z' || 'a' <= c <= 'z'
+_is_hex_digit(c::Char) = _is_ascii_digit(c) || 'A' <= c <= 'F' || 'a' <= c <= 'f'
+_is_unreserved(c::Char) = _is_ascii_alpha(c) || _is_ascii_digit(c) || c in "-._~"
+_is_sub_delim(c::Char) = c in "!\$&'()*+,;="
+_is_userinfo_char(c::Char) = _is_unreserved(c) || _is_sub_delim(c) || c == ':'
+_is_reg_name_char(c::Char) = _is_unreserved(c) || _is_sub_delim(c)
+_is_ip_literal_char(c::Char) = _is_unreserved(c) || _is_sub_delim(c) || c == ':'
+
+function _is_valid_encoded_component(s::AbstractString, valid_ascii::F) where {F}
+    i = firstindex(s)
+    stop = lastindex(s)
+    while i <= stop
+        c = s[i]
+        if c == '%'
+            first_hex = nextind(s, i)
+            first_hex <= stop || return false
+            second_hex = nextind(s, first_hex)
+            second_hex <= stop || return false
+            _is_hex_digit(s[first_hex]) && _is_hex_digit(s[second_hex]) || return false
+            i = nextind(s, second_hex)
+        else
+            isascii(c) && !valid_ascii(c) && return false
+            i = nextind(s, i)
+        end
+    end
+    return true
+end
+
+_is_valid_userinfo(s::AbstractString) = _is_valid_encoded_component(s, _is_userinfo_char)
+function _is_valid_host(s::AbstractString)
+    # The parser removes brackets from IP literals, so ':' distinguishes them
+    # from registered names here.
+    valid_ascii = occursin(':', s) ? _is_ip_literal_char : _is_reg_name_char
+    return _is_valid_encoded_component(s, valid_ascii)
 end
 
 const DEBUG_LEVEL = Ref(0)
@@ -111,16 +147,22 @@ function URI(uri::URI; scheme::Union{Nothing,AbstractString}=uri.scheme,
     @require isabsent(host) || isempty(path) || startswith(path, "/") "`path` with an authority component must be empty or start with '/'"
     @require !isabsent(host) || !startswith(path, "//") "`path` without an authority component must not start with '//'"
 
-    # reject control characters in all components
-    !isabsent(scheme)    && _reject_ctl(scheme, :scheme)
-    !isabsent(userinfo)  && _reject_ctl(userinfo, :userinfo)
-    !isabsent(host)      && _reject_ctl(host, :host)
+    # reject raw ASCII whitespace and control characters in all components
+    !isabsent(scheme)    && _reject_forbidden_ascii(scheme, :scheme)
+    !isabsent(userinfo)  && _reject_forbidden_ascii(userinfo, :userinfo)
+    !isabsent(host)      && _reject_forbidden_ascii(host, :host)
     if port !== absent
-        _reject_ctl(port, :port)
+        _reject_forbidden_ascii(port, :port)
     end
-    !isabsent(path)      && _reject_ctl(path, :path)
-    !isabsent(querys)    && _reject_ctl(querys, :query)
-    !isabsent(fragment)  && _reject_ctl(fragment, :fragment)
+    !isabsent(path)      && _reject_forbidden_ascii(path, :path)
+    !isabsent(querys)    && _reject_forbidden_ascii(querys, :query)
+    !isabsent(fragment)  && _reject_forbidden_ascii(fragment, :fragment)
+    !isabsent(userinfo) && !_is_valid_userinfo(userinfo) &&
+        throw(ArgumentError("Invalid URI userinfo: $userinfo"))
+    !isabsent(host) && !_is_valid_host(host) &&
+        throw(ArgumentError("Invalid URI host: $host"))
+    port !== absent && !all(_is_ascii_digit, port) &&
+        throw(ArgumentError("Invalid URI port: $port"))
 
     return URI(nostring, scheme, userinfo, host, port, path, querys, fragment)
 end
@@ -190,13 +232,13 @@ https://tools.ietf.org/html/rfc3986#section-4.1
 function parse_uri_reference(str::Union{String, SubString{String}};
                              strict = false)
     try
-        _reject_ctl(str, :uri)
+        _reject_forbidden_ascii(str, :uri)
     catch e
         # Keep this path concrete for ahead-of-time compilation. Reading an
         # ArgumentError's abstractly typed message makes the compiler retain
-        # generic string conversion even though _reject_ctl owns the message.
+        # generic string conversion even though _reject_forbidden_ascii owns it.
         e isa ArgumentError && throw(ParseError(
-            "URI uri contains control characters; see RFC 3986 & RFC 9110",
+            "URI uri contains raw whitespace or control characters; see RFC 3986",
         ))
         rethrow()
     end
@@ -211,6 +253,15 @@ function parse_uri_reference(str::Union{String, SubString{String}};
                    group(5, uri_reference_re, str, absent),
                    group(6, uri_reference_re, str, absent),
                    group(7, uri_reference_re, str, absent))
+    if !isabsent(uri.userinfo) && !_is_valid_userinfo(uri.userinfo)
+        throw(ParseError("Invalid URI userinfo: $(uri.userinfo)"))
+    end
+    if !isabsent(uri.host) && !_is_valid_host(uri.host)
+        throw(ParseError("Invalid URI host: $(uri.host)"))
+    end
+    if !isabsent(uri.port) && !all(_is_ascii_digit, uri.port)
+        throw(ParseError("Invalid URI port: $(uri.port)"))
+    end
     if strict
         ensurevalid(uri)
         @ensure uristring(uri) == str
