@@ -203,6 +203,24 @@ parse_uri_reference(str; strict = false) =
 
 Base.parse(::Type{URI}, str::AbstractString) = parse_uri_reference(str)
 
+"""
+    tryparse(URI, str::AbstractString) -> Union{URI,Nothing}
+
+Parse `str` as a URI reference. Return `nothing` instead of throwing a
+`URIs.ParseError` when parsing fails.
+
+Like `parse(URI, str)`, this accepts both absolute URIs and relative URI
+references.
+"""
+function Base.tryparse(::Type{URI}, str::AbstractString)
+    try
+        return parse(URI, str)
+    catch e
+        e isa ParseError && return nothing
+        rethrow()
+    end
+end
+
 function ensurevalid(uri::URI)
     # https://tools.ietf.org/html/rfc3986#section-3.1
     # ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )

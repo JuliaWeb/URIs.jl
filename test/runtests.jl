@@ -13,3 +13,6 @@ end
 Base.codeunits(x::CustomString) = codeunits(x.str)
 
 @test URIs.escapeuri(CustomString("http://example.com")) == URIs.escapeuri("http://example.com")
+
+# `tryparse` must rethrow errors other than parse failures.
+@test_throws MethodError tryparse(URI, CustomString("http://example.com"))

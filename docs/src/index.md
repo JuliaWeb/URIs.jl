@@ -50,6 +50,7 @@ true
 
 ```@docs
 URI
+Base.tryparse(::Type{URI}, ::AbstractString)
 queryparams
 queryparampairs
 absuri

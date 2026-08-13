@@ -500,6 +500,10 @@ urltests = URLTest[
         @test parse(URI, "s3://bucket/key") == URI(host="bucket", path="/key", scheme="s3")
 
         @test sprint(show, parse(URI, "http://google.com")) == "URI(\"http://google.com\")"
+
+        @test tryparse(URI, "http://google.com") == URI("http://google.com")
+        @test tryparse(URI, "../relative/path") == URI("../relative/path")
+        @test tryparse(URI, "http://example.com/\rheader") === nothing
     end
 
     @testset "Characters" begin
