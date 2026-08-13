@@ -27,18 +27,26 @@ end
 """
     URI(; scheme="", host="", port="", etc...)
     URI(str) = parse(URI, str::String)
+    URI(uri::URI; component=value, ...)
 
-A type representing a URI (e.g. a URL). Can be constructed from distinct parts using the various
-supported keyword arguments, or from a string. The `URI` constructors will automatically escape any provided
-`query` arguments, typically provided as `"key"=>"value"::Pair` or `Dict("key"=>"value")`. For all other components, you
-need to manually percent encode them before passing them to the `URI` constructor. Note that multiple values for a
-single query key can provided like `Dict("key"=>["value1", "value2"])`, in which case the constructor will
-percent encode _only_ the values you pass in as the `query` part.
+A type representing a URI (e.g. a URL). It can be constructed from a string or
+from the component keyword arguments `scheme`, `userinfo`, `host`, `port`,
+`path`, `query`, and `fragment`. Passing an existing `URI` as the first argument
+copies it and replaces the components supplied as keywords. Set a component to
+`nothing` to remove it. An empty string keeps the component present but empty,
+including its delimiter where the URI syntax distinguishes those states (for
+example, `query=""` adds `?`, while `query=nothing` removes it).
+
+The `URI` constructors automatically escape provided `query` collections,
+typically given as `"key"=>"value"::Pair` or `Dict("key"=>"value")`. For all
+other components, manually percent-encode them before passing them to the `URI`
+constructor. Multiple values for one query key can be provided as
+`Dict("key"=>["value1", "value2"])`; the constructor percent-encodes only the
+values passed as the `query` part.
 
 When constructing a `URI` from a `String`, you need to ensure that the string is correctly percent encoded already.
 
-The `URI` struct stores the complete URI in the `uri::String` field and the
-component parts in the following `SubString` fields:
+The `URI` struct stores the component parts in the following `SubString` fields:
   * `scheme`, e.g. `"http"` or `"https"`
   * `userinfo`, e.g. `"username:password"`
   * `host` e.g. `"julialang.org"`
@@ -46,6 +54,10 @@ component parts in the following `SubString` fields:
   * `path` e.g `"/"`
   * `query` e.g. `"Foo=1&Bar=2"`
   * `fragment`
+
+The `uri` field caches the original input string when one is available. It can
+be empty for a URI built or updated from components. Use `string(uri)` to get
+the complete URI string.
 
 The `queryparams(::URI)` function returns a `Dict` containing the `query`.
 
@@ -72,24 +84,32 @@ end)()
 
 const nostring = ""
 
-function URI(uri::URI; scheme::AbstractString=uri.scheme,
-                              userinfo::AbstractString=uri.userinfo,
-                              host::AbstractString=uri.host,
-                              port::Union{Integer,AbstractString}=uri.port,
-                              path::AbstractString=uri.path,
+function URI(uri::URI; scheme::Union{Nothing,AbstractString}=uri.scheme,
+                              userinfo::Union{Nothing,AbstractString}=uri.userinfo,
+                              host::Union{Nothing,AbstractString}=uri.host,
+                              port::Union{Nothing,Integer,AbstractString}=uri.port,
+                              path::Union{Nothing,AbstractString}=uri.path,
                               query=uri.query,
-                              fragment::AbstractString=uri.fragment)
+                              fragment::Union{Nothing,AbstractString}=uri.fragment)
 
-    @require isempty(host) || host[end] != '/'
-    @require scheme in uses_authority || isempty(host)
-    @require !isempty(host) || isempty(port)
-    @require !(scheme in ["http", "https"]) || isempty(path) || path[1] == '/'
-    @require !isempty(path) || !isempty(query) || isempty(fragment)
+    scheme = something(scheme, absent)
+    userinfo = something(userinfo, absent)
+    host = something(host, absent)
+    path = something(path, absent)
+    fragment = something(fragment, absent)
 
-    if port !== absent
+    if port === nothing
+        port = absent
+    elseif port !== absent
         port = string(port)
     end
-    querys = query isa AbstractString ? query : escapeuri(query)
+    querys = query === nothing ? absent : query isa AbstractString ? query : escapeuri(query)
+
+    @require isempty(host) || host[end] != '/' "`host` must not end with '/'"
+    @require !isabsent(host) || isabsent(port) "`port` requires an authority component"
+    @require !isabsent(host) || isabsent(userinfo) "`userinfo` requires an authority component"
+    @require isabsent(host) || isempty(path) || startswith(path, "/") "`path` with an authority component must be empty or start with '/'"
+    @require !isabsent(host) || !startswith(path, "//") "`path` without an authority component must not start with '//'"
 
     # reject control characters in all components
     !isabsent(scheme)    && _reject_ctl(scheme, :scheme)
@@ -324,6 +344,7 @@ function formaturi(io::IO,
 
     isempty(scheme)      || print(io, scheme, isabsent(host) ?
                                            ":" : "://")
+    isempty(scheme) && !isabsent(host) && print(io, "//")
     isabsent(userinfo)   || print(io, userinfo, "@")
     isempty(host)        || print(io, hoststring(host))
     isabsent(port)       || print(io, ":", port)
@@ -511,6 +532,9 @@ Splits the path into component segments based on `/`, according to
 http://tools.ietf.org/html/rfc3986#section-3.3. Any fragment and query parts of
 the string are ignored if present.
 
+An `AbstractString` argument is treated as a path, not as a complete URI. Wrap
+a complete URI string in `URI(...)` to split only its path component.
+
 A final empty path segment (trailing '/') is removed, if present. This is
 technically incompatible with the segment grammar of RFC3986, but it seems to
 be a common recommendation to make paths with and without a trailing slash
@@ -674,6 +698,10 @@ end
     joinpath(uri::URI, path::AbstractString) -> URI
 
 Join the path component of URI and other parts.
+
+This follows filesystem-style path joining and appends a relative part to the
+current path. Use [`resolvereference`](@ref) when resolving a URI reference
+against a base URI, where the last path segment can be replaced.
 
 If `uri` has no authority (host) component, the resulting path must not begin
 with `"//"`, since such a URI cannot be represented (RFC 3986 Section 3.3);
