@@ -6,6 +6,7 @@ export URI,
        resolvereference
 
 import Base.==
+import Serialization
 
 _is_forbidden_ascii(c::Char) = c <= ' ' || c == '\x7f'
 
@@ -380,6 +381,20 @@ showparts(uri::URI) = showparts(stdout, uri)
 Base.print(io::IO, u::URI) = print(io, string(u))
 
 Base.string(u::URI) = u.uri === nostring ? uristring(u) : u.uri
+
+# `URI` uses a sentinel `SubString` (`absent`) to distinguish an absent
+# component from an empty one, identified by object identity (`===`).
+# The default `Serialization` machinery round-trips field values but not
+# object identity, so a deserialized URI's components would no longer be
+# `===` to `absent`, corrupting the URI (see JuliaWeb/URIs.jl#75). Instead,
+# serialize/deserialize through the URI string itself.
+function Serialization.serialize(s::Serialization.AbstractSerializer, uri::URI)
+    Serialization.serialize_type(s, URI)
+    Serialization.serialize(s, string(uri))
+end
+
+Serialization.deserialize(s::Serialization.AbstractSerializer, ::Type{URI}) =
+    URI(Serialization.deserialize(s))
 
 #isabsent(ui) = isempty(ui) && !(ui === blank)
 isabsent(ui) = ui === absent
