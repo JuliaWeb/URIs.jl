@@ -388,13 +388,45 @@ Base.string(u::URI) = u.uri === nostring ? uristring(u) : u.uri
 # object identity, so a deserialized URI's components would no longer be
 # `===` to `absent`, corrupting the URI (see JuliaWeb/URIs.jl#75). Instead,
 # serialize/deserialize through the URI string itself.
+#
+# The payload is prefixed with an `Int` format marker so that streams written by
+# URIs.jl <= 1.7.0, which start with the eight struct fields (the first being
+# `uri::String`), remain readable: their first value can never be an `Int`.
+const SERIALIZATION_VERSION = 1
+
 function Serialization.serialize(s::Serialization.AbstractSerializer, uri::URI)
     Serialization.serialize_type(s, URI)
+    Serialization.serialize(s, SERIALIZATION_VERSION)
     Serialization.serialize(s, string(uri))
 end
 
-Serialization.deserialize(s::Serialization.AbstractSerializer, ::Type{URI}) =
-    URI(Serialization.deserialize(s))
+function Serialization.deserialize(s::Serialization.AbstractSerializer, ::Type{URI})
+    marker = Serialization.deserialize(s)
+    if marker isa Integer
+        marker == SERIALIZATION_VERSION || throw(ErrorException(
+            "unsupported URI serialization format $marker, expected at most $SERIALIZATION_VERSION; a newer version of URIs.jl is required to read this stream"))
+        return URI(Serialization.deserialize(s)::AbstractString)
+    end
+    # Legacy format: the eight struct fields, in order. All eight must be read
+    # to leave the stream aligned for whatever follows the URI. The `absent`
+    # sentinel identity does not survive such a stream, so restore it from
+    # emptiness, which is what an empty component meant in all but the rare
+    # present-but-empty case.
+    uri = marker::String
+    scheme = _deserialize_component(s)
+    userinfo = _deserialize_component(s)
+    host = _deserialize_component(s)
+    port = _deserialize_component(s)
+    path = _deserialize_component(s)
+    query = _deserialize_component(s)
+    fragment = _deserialize_component(s)
+    return URI(uri, scheme, userinfo, host, port, path, query, fragment)
+end
+
+function _deserialize_component(s::Serialization.AbstractSerializer)
+    component = Serialization.deserialize(s)::SubString{String}
+    return isempty(component) ? absent : component
+end
 
 #isabsent(ui) = isempty(ui) && !(ui === blank)
 isabsent(ui) = ui === absent
