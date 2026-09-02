@@ -507,6 +507,10 @@ urltests = URLTest[
         @test unescapeuri(escapeuri("abcdef 1234-=~!@#\$()_+{}|[]a;")) == "abcdef 1234-=~!@#\$()_+{}|[]a;"
         @test unescapeuri(escapeuri("👽")) == "👽"
 
+        @test escapeuri("a~b/c", c -> c == '~' || URIs.issafe(c)) == "a~b%2Fc"
+        # a `safe` that keeps a byte above 0x7f gets that character, UTF-8 encoded
+        @test escapeuri("αβ", c -> true) == escapeuri("αβ", isvalid) == "\u00ce\u00b1\u00ce\u00b2"
+
         @test escapeuri([("foo", "bar"), (1, 2)]) == "foo=bar&1=2"
         @test escapeuri(Dict(["foo" => "bar", 1 => 2])) in ("1=2&foo=bar", "foo=bar&1=2")
         @test escapeuri(["foo" => "bar", 1 => 2]) == "foo=bar&1=2"

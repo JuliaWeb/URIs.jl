@@ -521,8 +521,26 @@ Apply URI percent-encoding to escape special characters in `x`.
 function escapeuri end
 
 escapeuri(c::Char) = string('%', uppercase(string(Int(c), base=16, pad=2)))
-escapeuri(str::AbstractString, safe::Function=issafe) =
-    join(safe(c) ? c : escapeuri(c) for c in utf8_chars(str))
+
+@inline hexdigit(b::UInt8) = b < 0xa ? UInt8('0') + b : UInt8('A') + (b - 0xa)
+
+# Encoding byte by byte keeps this method resolvable under `--trim`; `join` over a
+# generator reaches `Base.AnnotatedString`, which trimming cannot resolve.
+function escapeuri(str::AbstractString, safe::Function=issafe)
+    bytes = _bytes(str)
+    out = UInt8[]
+    sizehint!(out, length(bytes))
+    for b in bytes
+        c = Char(b)
+        if safe(c)
+            # `safe` judges a `Char`, so a kept byte above 0x7f goes out UTF-8 encoded.
+            b < 0x80 ? push!(out, b) : append!(out, codeunits(string(c)))
+        else
+            push!(out, UInt8('%'), hexdigit(b >> 4), hexdigit(b & 0xf))
+        end
+    end
+    return String(out)
+end
 
 escapeuri(bytes::Vector{UInt8}) = bytes
 escapeuri(v::Number) = escapeuri(string(v))
