@@ -1,4 +1,5 @@
 using Test
+using Serialization
 
 mutable struct URLTest
     name::String
@@ -744,6 +745,67 @@ urltests = URLTest[
 
         @test_throws ArgumentError("foo() requires `x > 10`") foo(1, 11)
         @test_throws AssertionError("foo() failed to ensure `y > 10`\ny = 1\n10 = 10") foo(11, 1)
+    end
+
+    @testset "Serialization roundtrip" begin
+        # https://github.com/JuliaWeb/URIs.jl/issues/75
+        for uri in (
+            URI(; path="some/relative/path.pdf", scheme="file"),
+            URI("http://user:pass@example.com:8080/path?query=1#frag"),
+            URI("file:some/relative/path.pdf"),
+            URI(""),
+            URI("relative/path"),
+            URI("mailto:foo@example.com"),
+        )
+            buf = IOBuffer()
+            serialize(buf, uri)
+            seekstart(buf)
+            uri2 = deserialize(buf)
+            @test uri2 isa URI
+            @test uri == uri2
+            @test string(uri) == string(uri2)
+        end
+    end
+
+    @testset "Serialization backwards compatibility" begin
+        # Emulate the format written by URIs.jl <= 1.7.0, where the default
+        # `Serialization` machinery wrote the eight struct fields in order.
+        function serialize_legacy(s::Serialization.AbstractSerializer, uri::URI)
+            Serialization.serialize_type(s, URI)
+            for i in 1:nfields(uri)
+                serialize(s, getfield(uri, i))
+            end
+        end
+
+        for uri in (
+            URI(; path="some/relative/path.pdf", scheme="file"),
+            URI("http://user:pass@example.com:8080/path?query=1#frag"),
+            URI("file:some/relative/path.pdf"),
+            URI(""),
+            URI("relative/path"),
+            URI("mailto:foo@example.com"),
+        )
+            buf = IOBuffer()
+            s = Serializer(buf)
+            serialize_legacy(s, uri)
+            serialize(s, 42)
+            seekstart(buf)
+            d = Serializer(buf)
+            uri2 = deserialize(d)
+            @test uri2 isa URI
+            @test uri == uri2
+            @test string(uri) == string(uri2)
+            # The stream stays aligned for whatever followed the URI.
+            @test deserialize(d) == 42
+        end
+
+        # A stream written by a future, unknown format is reported as such.
+        buf = IOBuffer()
+        s = Serializer(buf)
+        Serialization.serialize_type(s, URI)
+        serialize(s, URIs.SERIALIZATION_VERSION + 1)
+        seekstart(buf)
+        @test_throws ErrorException deserialize(Serializer(buf))
     end
 
     @testset "download" begin
