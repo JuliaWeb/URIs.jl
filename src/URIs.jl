@@ -570,14 +570,15 @@ Percent-decode a string according to the URI escaping rules.
 function unescapeuri(str)
     occursin("%", str) || return str
     out = IOBuffer()
-    i = 1
     io = IOBuffer(str)
     while !eof(io)
         c = read(io, Char)
         if c == '%'
-            c1 = read(io, Char)
-            c = read(io, Char)
-            write(out, parse(UInt8, string(c1, c); base=16))
+            start = position(io) + 1
+            read(io, Char)
+            read(io, Char)
+            digits = SubString(str, start, prevind(str, position(io) + 1))
+            write(out, parse(UInt8, digits; base=16))
         else
             write(out, c)
         end

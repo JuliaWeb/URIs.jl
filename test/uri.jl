@@ -506,6 +506,16 @@ urltests = URLTest[
         @test escapeuri("abcdef αβ 1234-=~!@#\$()_+{}|[]a;") == "abcdef%20%CE%B1%CE%B2%201234-%3D%7E%21%40%23%24%28%29_%2B%7B%7D%7C%5B%5Da%3B"
         @test unescapeuri(escapeuri("abcdef 1234-=~!@#\$()_+{}|[]a;")) == "abcdef 1234-=~!@#\$()_+{}|[]a;"
         @test unescapeuri(escapeuri("👽")) == "👽"
+        @test unescapeuri("α%20β%CE%B3") == "α βγ"
+        @test unescapeuri(SubString("prefixα%20β%CE%B3", 7)) == "α βγ"
+        for byte in UInt8(0):UInt8(255)
+            digits = string(byte; base=16, pad=2)
+            @test codeunits(unescapeuri("%" * digits)) == [byte]
+            @test codeunits(unescapeuri("%" * uppercase(digits))) == [byte]
+        end
+        @test_throws EOFError unescapeuri("%")
+        @test_throws EOFError unescapeuri("%a")
+        @test_throws ArgumentError unescapeuri("%gg")
 
         @test escapeuri("a~b/c", c -> c == '~' || URIs.issafe(c)) == "a~b%2Fc"
         # a `safe` that keeps a byte above 0x7f gets that character, UTF-8 encoded
