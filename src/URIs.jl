@@ -528,9 +528,21 @@ escapeuri(c::Char) = string('%', uppercase(string(Int(c), base=16, pad=2)))
 # generator reaches `Base.AnnotatedString`, which trimming cannot resolve.
 function escapeuri(str::AbstractString, safe::Function=issafe)
     bytes = _bytes(str)
+    firstescape = 1
+    # Built-in policies keep only ASCII bytes, so their safe prefix can be copied.
+    if str isa String && (safe === issafe || safe === ispathsafe)
+        while firstescape <= length(bytes) && safe(Char(bytes[firstescape]))
+            firstescape += 1
+        end
+        firstescape > length(bytes) && return str
+    end
     out = UInt8[]
     sizehint!(out, length(bytes))
-    for b in bytes
+    for i in 1:(firstescape - 1)
+        push!(out, bytes[i])
+    end
+    for i in firstescape:length(bytes)
+        b = bytes[i]
         c = Char(b)
         if safe(c)
             # `safe` judges a `Char`, so a kept byte above 0x7f goes out UTF-8 encoded.
