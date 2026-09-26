@@ -173,7 +173,7 @@ URI(str::AbstractString; kw...) = isempty(kw) ? parse(URI, str) : URI(URI(str); 
 # Based on regex from RFC 3986:
 # https://tools.ietf.org/html/rfc3986#appendix-B
 function uri_reference_regex_f()
-    r = RegexAndMatchData(r"""^
+    RegexAndMatchData(r"""^
     (?: ([^:/?#]+) :) ?                     # 1. scheme
     (?: // (?: ([^/?#@]*) @) ?              # 2. userinfo
            (?| (?: \[ ([^:\]]*:[^\]]*) \] ) # 3. host (ipv6)
@@ -183,9 +183,6 @@ function uri_reference_regex_f()
     (?: \?([^#]*) ) ?                       # 6. query
     (?: [#](.*) ) ?                         # 7. fragment
     $"""x)
-    Base.compile(r.re)
-    initialize!(r)
-    r
 end
 
 if isdefined(Base, :OncePerTask)

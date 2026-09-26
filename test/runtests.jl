@@ -5,6 +5,13 @@ include("uri.jl")
 include("url.jl")
 include("utils.jl")
 
+@testset "parser match-buffer lifetime" begin
+    # The child instruments PCRE's deallocator without changing this test process.
+    child = joinpath(@__DIR__, "parser_lifetime_child.jl")
+    project = dirname(Base.active_project())
+    @test success(`$(Base.julia_cmd()) --startup-file=no --threads=1 --project=$project $child`)
+end
+
 # https://github.com/JuliaWeb/URIs.jl/issues/42
 struct CustomString <: AbstractString
     str::String
