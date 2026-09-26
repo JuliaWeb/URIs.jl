@@ -12,6 +12,19 @@ include("utils.jl")
     @test success(`$(Base.julia_cmd()) --startup-file=no --threads=1 --project=$project $child`)
 end
 
+@testset "capture and remainder outlive a Unicode match" begin
+    subject = "α/path?q=1"
+    owner = URIs.RegexAndMatchData(r"^([^?]+)\?")
+    capture, remainder = try
+        @test URIs.exec(owner, subject)
+        URIs.group(1, owner, subject), URIs.nextbytes(owner, subject)
+    finally
+        finalize(owner)
+    end
+    @test capture == "α/path"
+    @test remainder == "q=1"
+end
+
 # https://github.com/JuliaWeb/URIs.jl/issues/42
 struct CustomString <: AbstractString
     str::String
