@@ -77,6 +77,8 @@ escapeuri
 unescapeuri
 escapepath
 resolvereference
+URIs.normpath
+Base.joinpath(::URI, ::String...)
 URIs.splitpath
 Base.isvalid(::URI)
 ```
