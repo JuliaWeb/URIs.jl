@@ -698,6 +698,9 @@ Normalize the path portion of a URI by removing dot segments. This function
 corresponds to the `remove_dot_segments` function described in Sec. 5.2.4 of
 IETF RFC 3986.
 
+Only complete `.` and `..` segments are removed. Other names, including `...`
+and percent-encoded dots, are preserved; repeated slashes remain significant.
+
 Refer to:
 * https://tools.ietf.org/html/rfc3986#section-5.2.4
 """
@@ -705,54 +708,53 @@ normpath(url::URI) =
     URI(scheme=url.scheme, userinfo=url.userinfo, host=url.host, port=url.port,
         path=normpath(url.path), query=url.query, fragment=url.fragment)
 
-# normpath helper functions
-_tail(s, prefix) = last(s, length(s) - length(prefix))
-function _pop_segment(buf)
-    last_slash = findlast('/', buf)
-    (last_slash === nothing) ? "" : buf[firstindex(buf):prevind(buf, last_slash)]
-end
-
 function normpath(p::AbstractString)
-    # Ref: IETF RFC 3986 Sec. 5.2.4
-    # https://datatracker.ietf.org/doc/html/rfc3986#section-5.2.4
-    output = ""
+    str = String(p)
+    n = ncodeunits(str)
+    # An unchanged String needs neither an output buffer nor a copy.
+    dot = findfirst('.', str)
+    while dot !== nothing
+        if dot == 1 || codeunit(str, dot - 1) == UInt8('/')
+            after = dot + 1
+            after <= n && codeunit(str, after) == UInt8('.') && (after += 1)
+            (after > n || codeunit(str, after) == UInt8('/')) && break
+        end
+        dot = findnext('.', str, dot + 1)
+    end
+    dot === nothing && return str
 
-    while !isempty(p)
-        # Condition A
-        p = if startswith(p, "./")
-            _tail(p, "./")
-        elseif startswith(p, "../")
-            _tail(p, "../")
-        # Condition B
-        elseif startswith(p, "/./")
-            "/" * _tail(p, "/./")
-        elseif p == "/."
-            "/"
-        # Condition C
-        elseif startswith(p, "/../")
-            output = _pop_segment(output)
-            "/" * _tail(p, "/../")
-        elseif p == "/.."
-            output = _pop_segment(output)
-            "/"
-        # Condition D
-        elseif occursin(r"^\.+$", p)
-            last(p, 0)
-        # Condition E
-        else
-            next_slash = findnext(isequal('/'), p, nextind(p, 1))
-            if (next_slash === nothing)
-                output = output * p
-                last(p, 0)
-            else
-                prefix = p[firstindex(p):prevind(p, next_slash)]
-                output = output * prefix
-                _tail(p, prefix)
+    input = SubString(str)
+    output = UInt8[]
+    sizehint!(output, ncodeunits(input))
+
+    # RFC 3986 section 5.2.4. Views advance through the input; the output
+    # buffer only appends segments or removes their bytes, keeping work linear.
+    while !isempty(input)
+        input = if startswith(input, "./")
+            SubString(input, 3)
+        elseif startswith(input, "../")
+            SubString(input, 4)
+        elseif startswith(input, "/./")
+            SubString(input, 3)
+        elseif input == "/."
+            SubString(input, 1, 1)
+        elseif startswith(input, "/../") || input == "/.."
+            while !isempty(output) && pop!(output) != UInt8('/')
             end
+            input == "/.." ? SubString(input, 1, 1) : SubString(input, 4)
+        elseif input == "." || input == ".."
+            break
+        else
+            next_slash = findnext(isequal('/'), input, nextind(input, 1))
+            if next_slash === nothing
+                append!(output, codeunits(input))
+                break
+            end
+            append!(output, codeunits(SubString(input, 1, prevind(input, next_slash))))
+            SubString(input, next_slash)
         end
     end
-
-    output
+    return String(output)
 end
 
 absuri(u, context) = absuri(URI(u), URI(context))
@@ -777,7 +779,7 @@ function absuri(uri::URI, context::URI)
 end
 
 """
-    joinpath(uri::URI, path::AbstractString) -> URI
+    joinpath(uri::URI, parts::String...) -> URI
 
 Join the path component of URI and other parts.
 

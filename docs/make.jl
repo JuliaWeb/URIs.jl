@@ -4,6 +4,7 @@ DocMeta.setdocmeta!(URIs, :DocTestSetup, :(using URIs); recursive=true)
 
 makedocs(;
     modules=[URIs],
+    checkdocs=:exports,
     format=Documenter.HTML(),
     pages=[
         "Home" => "index.md",
