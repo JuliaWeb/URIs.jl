@@ -49,3 +49,22 @@ jobs:
       - uses: julia-actions/julia-docdeploy@latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  native:
+    name: Native path normalization
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.13'
+      - uses: julia-actions/cache@v2
+      - name: Install native test dependencies
+        run: julia --startup-file=no --project=test/trim -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+      - name: Compile and exercise runtime paths
+        run: |
+          julia --startup-file=no --project=test/trim -e 'using JuliaC; JuliaC.main(ARGS)' -- --output-exe uri-normalize --project=test/trim --experimental --trim=safe test/trim/path_normalization.jl
+          JULIA_LOAD_CODEGEN_LIB=0 ./uri-normalize '/a/b/../c' '/a/c'
+          JULIA_LOAD_CODEGEN_LIB=0 ./uri-normalize './...' '...'
+          JULIA_LOAD_CODEGEN_LIB=0 ./uri-normalize '/a//b/../' '/a//'
+          JULIA_LOAD_CODEGEN_LIB=0 ./uri-normalize '/é/./🌟/../%2e' '/é/%2e'
+          JULIA_LOAD_CODEGEN_LIB=0 ./uri-normalize '' ''
