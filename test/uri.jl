@@ -747,19 +747,27 @@ urltests = URLTest[
         # https://github.com/JuliaWeb/URIs.jl/issues/75
         for uri in (
             URI(; path="some/relative/path.pdf", scheme="file"),
+            URI(; scheme="http", userinfo="", host="", port="", query="", fragment=""),
             URI("http://user:pass@example.com:8080/path?query=1#frag"),
+            URI("http://@example.com:/?#"),
             URI("file:some/relative/path.pdf"),
             URI(""),
             URI("relative/path"),
             URI("mailto:foo@example.com"),
         )
             buf = IOBuffer()
-            serialize(buf, uri)
+            s = Serializer(buf)
+            serialize(s, uri)
+            serialize(s, 42)
             seekstart(buf)
-            uri2 = deserialize(buf)
+            d = Serializer(buf)
+            uri2 = deserialize(d)
             @test uri2 isa URI
             @test uri == uri2
             @test string(uri) == string(uri2)
+            @test string(URI(uri; path="/changed")) ==
+                  string(URI(uri2; path="/changed"))
+            @test deserialize(d) == 42
         end
     end
 
@@ -776,6 +784,7 @@ urltests = URLTest[
         for uri in (
             URI(; path="some/relative/path.pdf", scheme="file"),
             URI("http://user:pass@example.com:8080/path?query=1#frag"),
+            URI("http://@example.com:/?#"),
             URI("file:some/relative/path.pdf"),
             URI(""),
             URI("relative/path"),
@@ -791,6 +800,8 @@ urltests = URLTest[
             @test uri2 isa URI
             @test uri == uri2
             @test string(uri) == string(uri2)
+            @test string(URI(uri; path="/changed")) ==
+                  string(URI(uri2; path="/changed"))
             # The stream stays aligned for whatever followed the URI.
             @test deserialize(d) == 42
         end

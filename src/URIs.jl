@@ -403,29 +403,22 @@ end
 function Serialization.deserialize(s::Serialization.AbstractSerializer, ::Type{URI})
     marker = Serialization.deserialize(s)
     if marker isa Integer
-        marker == SERIALIZATION_VERSION || throw(ErrorException(
-            "unsupported URI serialization format $marker, expected at most $SERIALIZATION_VERSION; a newer version of URIs.jl is required to read this stream"))
-        return URI(Serialization.deserialize(s)::AbstractString)
+        marker == SERIALIZATION_VERSION ||
+            error("unsupported URI serialization format $marker; update URIs.jl")
+        return URI(Serialization.deserialize(s)::String)
     end
-    # Legacy format: the eight struct fields, in order. All eight must be read
-    # to leave the stream aligned for whatever follows the URI. The `absent`
-    # sentinel identity does not survive such a stream, so restore it from
-    # emptiness, which is what an empty component meant in all but the rare
-    # present-but-empty case.
-    uri = marker::String
-    scheme = _deserialize_component(s)
-    userinfo = _deserialize_component(s)
-    host = _deserialize_component(s)
-    port = _deserialize_component(s)
-    path = _deserialize_component(s)
-    query = _deserialize_component(s)
-    fragment = _deserialize_component(s)
-    return URI(uri, scheme, userinfo, host, port, path, query, fragment)
-end
 
-function _deserialize_component(s::Serialization.AbstractSerializer)
-    component = Serialization.deserialize(s)::SubString{String}
-    return isempty(component) ? absent : component
+    # Legacy format: consume all eight struct fields to keep the stream aligned.
+    uri = marker::String
+    components = ntuple(7) do _
+        component = Serialization.deserialize(s)::SubString{String}
+        isempty(component) ? absent : component
+    end
+
+    # The cached string preserves component presence for parsed URIs. Old
+    # component-only streams lost the distinction between absent and empty, so
+    # treating empty components as absent is the only useful fallback.
+    return isempty(uri) ? URI(uri, components...) : URI(uri)
 end
 
 #isabsent(ui) = isempty(ui) && !(ui === blank)
