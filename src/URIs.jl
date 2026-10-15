@@ -315,8 +315,8 @@ function ensurevalid(uri::URI)
         throw(ParseError("Invalid URI path: $(uri.path)"))
     end
 
-    # FIXME
-    # For compatibility with existing test/uri.jl
+    # Strict parsing also rejects '=', ';' and '%' in a host, which the
+    # reg-name rule of RFC 3986 allows.
     if !(uri.host === absent) &&
         (occursin("=", uri.host) ||
          occursin(";", uri.host) ||
@@ -495,22 +495,6 @@ end
                           (isascii(c) && (isletter(c) || isnumeric(c)))
 
 """
-    _bytes(s::String)
-
-Get a `Vector{UInt8}`, a vector of bytes of a string.
-"""
-function _bytes end
-_bytes(s::SubArray{UInt8}) = unsafe_wrap(Array, pointer(s), length(s))
-
-_bytes(s::Union{Vector{UInt8}, Base.CodeUnits}) = _bytes(String(s))
-_bytes(s::AbstractString) = codeunits(s)
-
-_bytes(s::Vector{UInt8}) = s
-
-
-utf8_chars(str::AbstractString) = (Char(c) for c in _bytes(str))
-
-"""
     escapeuri(x)
 
 Apply URI percent-encoding to escape special characters in `x`.
@@ -524,7 +508,7 @@ escapeuri(c::Char) = string('%', uppercase(string(Int(c), base=16, pad=2)))
 # Encoding byte by byte keeps this method resolvable under `--trim`; `join` over a
 # generator reaches `Base.AnnotatedString`, which trimming cannot resolve.
 function escapeuri(str::AbstractString, safe::Function=issafe)
-    bytes = _bytes(str)
+    bytes = codeunits(str)
     firstescape = 1
     # Built-in policies keep only ASCII bytes, so their safe prefix can be copied.
     if str isa String && (safe === issafe || safe === ispathsafe)
