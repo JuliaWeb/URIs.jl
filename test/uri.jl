@@ -796,14 +796,23 @@ urltests = URLTest[
             URI(""),
             URI("relative/path"),
             URI("mailto:foo@example.com"),
+            # Keyword-built values whose string form parses differently.
+            URI(; path="foo:bar"),
+            URI(; path="a?b"),
+            URI(; path="a#b"),
+            URI(; scheme="http", host="a", query="x#y"),
         )
             buf = IOBuffer()
-            serialize(buf, uri)
+            serialize(buf, (uri, 42))
             seekstart(buf)
-            uri2 = deserialize(buf)
+            uri2, trailing = deserialize(buf)
             @test uri2 isa URI
-            @test uri == uri2
+            for f in fieldnames(URI)
+                @test getfield(uri2, f) == getfield(uri, f)
+                @test URIs.isabsent(getfield(uri2, f)) == URIs.isabsent(getfield(uri, f))
+            end
             @test string(uri) == string(uri2)
+            @test trailing == 42
         end
     end
 
@@ -824,6 +833,9 @@ urltests = URLTest[
             URI(""),
             URI("relative/path"),
             URI("mailto:foo@example.com"),
+            # Present but empty components come back through the cached string.
+            URI("http://example.com?"),
+            URI("file:///x"),
         )
             buf = IOBuffer()
             s = Serializer(buf)
@@ -835,9 +847,23 @@ urltests = URLTest[
             @test uri2 isa URI
             @test uri == uri2
             @test string(uri) == string(uri2)
+            @test string(URI(uri2; fragment="f")) == string(URI(uri; fragment="f"))
             # The stream stays aligned for whatever followed the URI.
             @test deserialize(d) == 42
         end
+
+        # A cached string the current parser rejects falls back to the fields.
+        old = URI("http://a/b c", "http", "", "a", "", "/b c", "", "")
+        buf = IOBuffer()
+        s = Serializer(buf)
+        serialize_legacy(s, old)
+        serialize(s, 42)
+        seekstart(buf)
+        d = Serializer(buf)
+        uri2 = deserialize(d)
+        @test string(uri2) == "http://a/b c"
+        @test URIs.isabsent(uri2.query) && uri2.path == "/b c"
+        @test deserialize(d) == 42
 
         # A stream written by a future, unknown format is reported as such.
         buf = IOBuffer()
