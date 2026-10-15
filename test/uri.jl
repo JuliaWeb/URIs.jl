@@ -496,10 +496,26 @@ urltests = URLTest[
         @test tryparse(URI, "http://google.com") == URI("http://google.com")
         @test tryparse(URI, "../relative/path") == URI("../relative/path")
         @test tryparse(URI, "http://example.com/\rheader") === nothing
+
+        # Other string types are parsed through a `String` copy.
+        @test URI(Test.GenericString("http://example.com/a?b")) == URI("http://example.com/a?b")
+        @test_throws URIs.ParseError URIs.parse_uri_reference(Test.GenericString("http://🍕.com"); strict=true)
+    end
+
+    @testset "Equality and hashing" begin
+        parsed = URI("http://example.com/x")
+        for other in (URI(; scheme="http", host="example.com", path="/x"), URI("http://example.com:80/x"))
+            @test isequal(parsed, other)
+            @test hash(parsed) == hash(other)
+        end
+        @test URI(; scheme="http", host="example.com", path="/x") in Set([parsed])
+        @test Dict(parsed => 1)[URI("http://example.com:80/x")] == 1
     end
 
     @testset "Characters" begin
         @test escapeuri(Char(1)) == "%01"
+        @test escapeuri('a') == "%61"
+        @test escapeuri('α') == escapeuri("α") == "%CE%B1"
 
         @test escapeuri(Dict("key1"=>"value1", "key2"=>["value2", "value3"])) == "key2=value2&key2=value3&key1=value1"
 
