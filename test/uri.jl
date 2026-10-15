@@ -744,6 +744,20 @@ urltests = URLTest[
         @test resolvereference(base, "g?y/../x") == URI("http://a/b/c/g?y/../x")
         @test resolvereference(base, "g#s/./x") == URI("http://a/b/c/g#s/./x")
         @test resolvereference(base, "g#s/../x") == URI("http://a/b/c/g#s/../x")
+        # A strict parser keeps a scheme that matches the base's.
+        @test resolvereference(base, "http:g") == URI("http:g")
+
+        # A reference with an authority replaces the whole base authority.
+        base = URI("http://user:pw@a:8080/b/c/d;p?q")
+        @test string(resolvereference(base, "//g")) == "http://g"
+        @test string(resolvereference(base, "//u@g/x")) == "http://u@g/x"
+        @test string(resolvereference(base, "/g")) == "http://user:pw@a:8080/g"
+        @test string(resolvereference(base, "g")) == "http://user:pw@a:8080/b/c/g"
+
+        # Components that are defined but empty still take part.
+        @test string(resolvereference("http://a/b/c/d;p?q", "?")) == "http://a/b/c/d;p?"
+        @test string(resolvereference("http://a/b/c/d;p?q", "//")) == "http://"
+        @test string(resolvereference("file://", "g")) == "file:///g"
     end
 
     @testset "error testing tools" begin
