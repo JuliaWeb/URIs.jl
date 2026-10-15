@@ -842,24 +842,26 @@ function resolvereference(base::URI, ref::URI)
         return ref
     end
 
-    host, port, path, query = if !isempty(ref.host)
-        ref.host, ref.port, ref.path, ref.query
+    # RFC 3986 tests whether a component is defined, not whether it is empty:
+    # `//host` replaces the whole authority, userinfo included, and `?`
+    # replaces the base query with an empty one.
+    userinfo, host, port, path, query = if !isabsent(ref.host)
+        ref.userinfo, ref.host, ref.port, ref.path, ref.query
     else
         path, query = if isempty(ref.path)
-            base.path, isempty(ref.query) ? base.query : ref.query
+            base.path, isabsent(ref.query) ? base.query : ref.query
         else
             path = startswith(ref.path, "/") ? ref.path : resolveref_merge(base, ref)
             path, ref.query
         end
-        base.host, base.port, path, query
+        base.userinfo, base.host, base.port, path, query
     end
 
     path = normpath(path)
     scheme = base.scheme
     fragment = ref.fragment
-    userinfo = isempty(ref.userinfo) ? base.userinfo : ref.userinfo
 
-    URI(;
+    return URI(;
         scheme=scheme,
         userinfo=userinfo,
         host=host,
@@ -879,7 +881,7 @@ Implementation of the "merge" routine described in RFC 3986 Sec. 5.2.3 for mergi
 a relative-path reference with the path of the base URI.
 """
 function resolveref_merge(base, ref)
-    if !isempty(base.host) && isempty(base.path)
+    if !isabsent(base.host) && isempty(base.path)
         "/" * ref.path
     else
         last_slash = findprev("/", base.path, lastindex(base.path))
