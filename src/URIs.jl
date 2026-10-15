@@ -266,8 +266,9 @@ function parse_uri_reference(str::Union{String, SubString{String}};
     return uri
 end
 
+# The parser matches against `String` memory, so copy other string types.
 parse_uri_reference(str; strict = false) =
-    parse_uri_reference(SubString(str); strict = false)
+    parse_uri_reference(String(str); strict)
 
 Base.parse(::Type{URI}, str::AbstractString) = parse_uri_reference(str)
 
@@ -347,9 +348,13 @@ isabspath(uri::URI) = startswith(uri.path, "/") && !startswith(uri.path, "//")
                     a.fragment    == b.fragment    &&
                     a.userinfo    == b.userinfo
 
+# Hash what `==` compares, so equal URIs work as `Dict` keys and `Set` members.
+Base.hash(u::URI, h::UInt) = hash((u.scheme, u.host, normalport(u), u.path,
+                                   u.query, u.fragment, u.userinfo), hash(URI, h))
+
 normalport(uri::URI) = uri.scheme == "http"  && uri.port == "80" ||
                        uri.scheme == "https" && uri.port == "443" ?
-                       "" : uri.port
+                       absent : uri.port
 
 hoststring(h) = ':' in h ? "[$h]" : h
 
@@ -517,7 +522,8 @@ Apply URI percent-encoding to escape special characters in `x`.
 """
 function escapeuri end
 
-escapeuri(c::Char) = string('%', uppercase(string(Int(c), base=16, pad=2)))
+# Percent-encode every UTF-8 byte of `c`, even when the character is unreserved.
+escapeuri(c::Char) = escapeuri(string(c), _ -> false)
 
 @inline hexdigit(b::UInt8) = b < 0xa ? UInt8('0') + b : UInt8('A') + (b - 0xa)
 
