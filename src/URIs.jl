@@ -768,14 +768,23 @@ function normpath(p::AbstractString)
         else
             next_slash = findnext(isequal('/'), input, nextind(input, 1))
             if next_slash === nothing
-                append!(output, codeunits(input))
+                _append_codeunits!(output, input)
                 break
             end
-            append!(output, codeunits(SubString(input, 1, prevind(input, next_slash))))
+            _append_codeunits!(output, SubString(input, 1, prevind(input, next_slash)))
             SubString(input, next_slash)
         end
     end
     return String(output)
+end
+
+# `append!(out, codeunits(s))` checks `out` and `s` for aliasing through `objectid`, which
+# hashes all of `s`'s parent string, so appending segment by segment that way is quadratic.
+function _append_codeunits!(out::Vector{UInt8}, s::SubString{String})
+    for i in 1:ncodeunits(s)
+        push!(out, codeunit(s, i))
+    end
+    return out
 end
 
 absuri(u, context) = absuri(URI(u), URI(context))
