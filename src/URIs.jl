@@ -57,7 +57,9 @@ end
 # where a user name and password are, becomes "***". Using the last '@' also covers a password
 # with a raw '/', '?', '#' or '@' in it.
 function _redacted(str::AbstractString)
-    at = findlast(isequal('@'), str)
+    # `findprev` rather than `findlast`, which passes the predicate on unspecialized and so is
+    # not resolvable under `--trim`
+    at = findprev(isequal('@'), str, lastindex(str))
     at === nothing && return String(str)
     slashes = findfirst("//", str)
     from = slashes === nothing || first(slashes) > at ? firstindex(str) : nextind(str, last(slashes))
