@@ -113,4 +113,10 @@ allocated_normalization(p) = @allocated URIs.normpath(p)
     large_bytes = allocated_normalization(large)
     @test large_bytes <= 6small_bytes
     @test large_bytes <= 32ncodeunits(large) + 4096
+
+    # Each kept segment is copied in time proportional to the segment, not to the whole
+    # path: 500 KB of segments and dot segments take milliseconds, not tens of seconds.
+    dotted = "/" * "a/"^100_000 * "../"^100_000
+    @test URIs.normpath(dotted) == "/"
+    @test @elapsed(URIs.normpath(dotted)) < 1.0
 end
