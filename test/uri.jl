@@ -600,6 +600,17 @@ urltests = URLTest[
         @test URI("http://[::1]").path == ""
         @test URI("http://[::1]?q").query == "q"
         @test URI("http://[::1]:80/x").path == "/x"
+        # Error messages leave out user names and passwords, also when a raw '@', '/' or '^'
+        # in the password splits the authority elsewhere.
+        for parse_bad in (() -> URI("http://user:s3cr3t^@host/"), () -> URI("http://user:s3cr3t@x@host/"),
+                          () -> URI("http://user:s3cr3t@host:8x/"), () -> URI("http://user:s3cr3t@[localhost]/"),
+                          () -> URI("http://user:s3cr3t/x@host/"),
+                          () -> URIs.parse_uri("//user:s3cr3t@host/"),
+                          () -> URI(; scheme="http", userinfo="user:s3cr3t^", host="host"),
+                          () -> URIs.splitfilepath(URI("http://user:s3cr3t@host/")))
+            err = try parse_bad() catch e; e end
+            @test err isa Exception && !occursin("s3cr3t", sprint(showerror, err))
+        end
         @test URI("http://a%40b@foo%41.com/").userinfo == "a%40b"
         @test URI("http://a%40b@foo%41.com/").host == "foo%41.com"
         @test URI("http://[fe80::a%25eth0]/").host == "fe80::a%25eth0"
