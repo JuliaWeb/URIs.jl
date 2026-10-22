@@ -260,6 +260,12 @@ function parse_uri_reference(str::Union{String, SubString{String}};
     if !isabsent(uri.port) && !all(_is_ascii_digit, uri.port)
         throw(ParseError("Invalid URI port: $(uri.port)"))
     end
+    # After an authority the path is empty or starts with '/' (RFC 3986 section 3.3). The
+    # pattern leaves the rest of an authority it cannot split in the path instead, as in
+    # `http://[localhost]/` (host "") or `http://[::1]x/` (host "::1").
+    if !isabsent(uri.host) && !isempty(uri.path) && !startswith(uri.path, '/')
+        throw(ParseError("Invalid URI authority: $str"))
+    end
     if strict
         ensurevalid(uri)
         @ensure uristring(uri) == str
