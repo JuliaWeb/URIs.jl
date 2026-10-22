@@ -590,6 +590,27 @@ urltests = URLTest[
         for host in ("foo\\bar", "foo|bar", "foo{bar}", "foo]bar", "foo%GGbar")
             @test_throws URIs.ParseError URI("http://$host/")
         end
+        # Brackets around a non-IPv6 host, or text after an IP literal, are not a host
+        # followed by a path.
+        for url in ("http://[localhost]/", "http://[169.254.169.254]/", "http://[a]:80/",
+                    "http://[::1]evil.com/", "http://[::1].evil.com/", "http://foo[bar]/", "//[x]y")
+            @test_throws URIs.ParseError URI(url)
+            @test tryparse(URI, url) === nothing
+        end
+        @test URI("http://[::1]").path == ""
+        @test URI("http://[::1]?q").query == "q"
+        @test URI("http://[::1]:80/x").path == "/x"
+        # Error messages leave out user names and passwords, also when a raw '@', '/' or '^'
+        # in the password splits the authority elsewhere.
+        for parse_bad in (() -> URI("http://user:s3cr3t^@host/"), () -> URI("http://user:s3cr3t@x@host/"),
+                          () -> URI("http://user:s3cr3t@host:8x/"), () -> URI("http://user:s3cr3t@[localhost]/"),
+                          () -> URI("http://user:s3cr3t/x@host/"),
+                          () -> URIs.parse_uri("//user:s3cr3t@host/"),
+                          () -> URI(; scheme="http", userinfo="user:s3cr3t^", host="host"),
+                          () -> URIs.splitfilepath(URI("http://user:s3cr3t@host/")))
+            err = try parse_bad() catch e; e end
+            @test err isa Exception && !occursin("s3cr3t", sprint(showerror, err))
+        end
         @test URI("http://a%40b@foo%41.com/").userinfo == "a%40b"
         @test URI("http://a%40b@foo%41.com/").host == "foo%41.com"
         @test URI("http://[fe80::a%25eth0]/").host == "fe80::a%25eth0"

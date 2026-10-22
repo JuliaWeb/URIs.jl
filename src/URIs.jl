@@ -53,6 +53,19 @@ function _is_valid_host(s::AbstractString)
     return _is_valid_encoded_component(s, valid_ascii)
 end
 
+# `str` for an error message: everything from the authority up to the last '@' of the string,
+# where a user name and password are, becomes "***". Using the last '@' also covers a password
+# with a raw '/', '?', '#' or '@' in it.
+function _redacted(str::AbstractString)
+    # `findprev` rather than `findlast`, which passes the predicate on unspecialized and so is
+    # not resolvable under `--trim`
+    at = findprev(isequal('@'), str, lastindex(str))
+    at === nothing && return String(str)
+    slashes = findfirst("//", str)
+    from = slashes === nothing || first(slashes) > at ? firstindex(str) : nextind(str, last(slashes))
+    return string(SubString(str, firstindex(str), prevind(str, from)), "***", SubString(str, at))
+end
+
 const DEBUG_LEVEL = Ref(0)
 include("debug.jl")
 include("parseutils.jl")
@@ -159,7 +172,7 @@ function URI(uri::URI; scheme::Union{Nothing,AbstractString}=uri.scheme,
     !isabsent(querys)    && _reject_forbidden_ascii(querys, :query)
     !isabsent(fragment)  && _reject_forbidden_ascii(fragment, :fragment)
     !isabsent(userinfo) && !_is_valid_userinfo(userinfo) &&
-        throw(ArgumentError("Invalid URI userinfo: $userinfo"))
+        throw(ArgumentError("Invalid URI userinfo: characters other than unreserved, sub-delims and ':' must be percent-encoded"))
     !isabsent(host) && !_is_valid_host(host) &&
         throw(ArgumentError("Invalid URI host: $host"))
     port !== absent && !all(_is_ascii_digit, port) &&
@@ -219,7 +232,7 @@ https://tools.ietf.org/html/rfc3986#section-3
 function parse_uri(str::AbstractString; kw...)
     uri = parse_uri_reference(str; kw...)
     if isempty(uri.scheme)
-        throw(URIs.ParseError("URI without scheme: $str"))
+        throw(URIs.ParseError("URI without scheme: $(_redacted(str))"))
     end
     return uri
 end
@@ -252,17 +265,25 @@ function parse_uri_reference(str::Union{String, SubString{String}};
                    group(6, uri_reference_re, str, absent),
                    group(7, uri_reference_re, str, absent))
     if !isabsent(uri.userinfo) && !_is_valid_userinfo(uri.userinfo)
-        throw(ParseError("Invalid URI userinfo: $(uri.userinfo)"))
+        throw(ParseError("Invalid URI userinfo in $(_redacted(str))"))
     end
+    # The host or port of a malformed authority can hold part of a password, so these
+    # messages show the redacted string rather than the component.
     if !isabsent(uri.host) && !_is_valid_host(uri.host)
-        throw(ParseError("Invalid URI host: $(uri.host)"))
+        throw(ParseError("Invalid URI host in $(_redacted(str))"))
     end
     if !isabsent(uri.port) && !all(_is_ascii_digit, uri.port)
-        throw(ParseError("Invalid URI port: $(uri.port)"))
+        throw(ParseError("Invalid URI port in $(_redacted(str))"))
+    end
+    # After an authority the path is empty or starts with '/' (RFC 3986 section 3.3). The
+    # pattern leaves the rest of an authority it cannot split in the path instead, as in
+    # `http://[localhost]/` (host "") or `http://[::1]x/` (host "::1").
+    if !isabsent(uri.host) && !isempty(uri.path) && !startswith(uri.path, '/')
+        throw(ParseError("Invalid URI authority in $(_redacted(str))"))
     end
     if strict
         ensurevalid(uri)
-        @ensure uristring(uri) == str
+        uristring(uri) == str || throw(ParseError("URI does not round-trip: $(_redacted(str))"))
     end
     return uri
 end
@@ -302,7 +323,7 @@ function ensurevalid(uri::URI)
     # unreserved / pct-encoded / sub-delims
     if !(uri.host === absent ||
          occursin(r"^[:[:alnum:]\-._~%!$&'()*+,;=]+$", uri.host))
-        throw(ParseError("Invalid URI host: $(uri.host) $uri"))
+        throw(ParseError("Invalid URI host: $(uri.host)"))
     end
     # https://tools.ietf.org/html/rfc3986#section-3.2.3
     # "port number in decimal"
@@ -676,7 +697,7 @@ function splitfilepath(path::AbstractString; rstrip_empty_segment::Bool=true)
 end
 
 function splitfilepath(a::URI; kwargs...)
-    a.scheme == "file" || throw(ArgumentError("a = $a"))
+    a.scheme == "file" || throw(ArgumentError("splitfilepath requires a file URI, not scheme $(repr(String(a.scheme)))"))
     splitfilepath(a.path; kwargs...)
 end
 
