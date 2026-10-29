@@ -533,6 +533,11 @@ urltests = URLTest[
         @test_throws EOFError unescapeuri("%")
         @test_throws EOFError unescapeuri("%a")
         @test_throws ArgumentError unescapeuri("%gg")
+        # Only two hex digits: whitespace was skipped ("% A" gave "\n"), and
+        # bytes that are not UTF-8 threw InvalidCharError.
+        for bad in ("% A", "%+A", "%\r3", "%-0", "%\xff\xfe", "%\xf0\x80\x9f\x98a", "%é1", "%1é")
+            @test_throws ArgumentError unescapeuri(bad)
+        end
 
         @test escapeuri("a~b/c", c -> c == '~' || URIs.issafe(c)) == "a~b%2Fc"
         # a `safe` that keeps a byte above 0x7f gets that character, UTF-8 encoded
