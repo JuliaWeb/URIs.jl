@@ -619,7 +619,9 @@ decodeplus(q) = replace(q, '+' => ' ')
 """
     unescapeuri(str)
 
-Percent-decode a string according to the URI escaping rules.
+Percent-decode a string according to the URI escaping rules. Each `%` must be
+followed by two hexadecimal digits; any other byte there throws an
+`ArgumentError`.
 """
 function unescapeuri(str)
     occursin("%", str) || return str
@@ -632,12 +634,26 @@ function unescapeuri(str)
             read(io, Char)
             read(io, Char)
             digits = SubString(str, start, prevind(str, position(io) + 1))
-            write(out, parse(UInt8, digits; base=16))
+            write(out, _percent_escape_byte(digits))
         else
             write(out, c)
         end
     end
     return String(take!(out))
+end
+
+@inline _hex_value(b::UInt8) = 0x30 <= b <= 0x39 ? b - 0x30 : 0x61 <= (b | 0x20) <= 0x66 ? (b | 0x20) - 0x57 : 0xff
+
+# Exactly two hex digits. `parse(UInt8, digits; base=16)` also skips
+# whitespace ("% A" decoded to a newline) and throws InvalidCharError for
+# bytes that are not UTF-8.
+function _percent_escape_byte(digits::AbstractString)::UInt8
+    if ncodeunits(digits) == 2
+        hi = _hex_value(codeunit(digits, 1))
+        lo = _hex_value(codeunit(digits, 2))
+        hi != 0xff && lo != 0xff && return (hi << 4) | lo
+    end
+    throw(ArgumentError("invalid percent escape: $(repr("%" * digits))"))
 end
 
 ispathsafe(c::Char) = c == '/' || issafe(c)
