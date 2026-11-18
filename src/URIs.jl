@@ -620,8 +620,7 @@ decodeplus(q) = replace(q, '+' => ' ')
     unescapeuri(str)
 
 Percent-decode a string according to the URI escaping rules. Each `%` must be
-followed by two hexadecimal digits; any other byte there throws an
-`ArgumentError`.
+followed by two hexadecimal digits, or `unescapeuri` throws an `ArgumentError`.
 """
 function unescapeuri(str)
     occursin("%", str) || return str
@@ -631,8 +630,8 @@ function unescapeuri(str)
         c = read(io, Char)
         if c == '%'
             start = position(io) + 1
-            read(io, Char)
-            read(io, Char)
+            eof(io) || read(io, Char)
+            eof(io) || read(io, Char)
             digits = SubString(str, start, prevind(str, position(io) + 1))
             write(out, _percent_escape_byte(digits))
         else
