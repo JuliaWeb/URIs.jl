@@ -530,8 +530,10 @@ urltests = URLTest[
             @test codeunits(unescapeuri("%" * digits)) == [byte]
             @test codeunits(unescapeuri("%" * uppercase(digits))) == [byte]
         end
-        @test_throws EOFError unescapeuri("%")
-        @test_throws EOFError unescapeuri("%a")
+        @test_throws ArgumentError unescapeuri("%")
+        @test_throws ArgumentError unescapeuri("%a")
+        @test_throws ArgumentError unescapeuri("50%")
+        @test_throws ArgumentError queryparams("q=50%")
         @test_throws ArgumentError unescapeuri("%gg")
         # Only two hex digits: whitespace was skipped ("% A" gave "\n"), and
         # bytes that are not UTF-8 threw InvalidCharError.
