@@ -23,7 +23,6 @@ _is_unreserved(c::Char) = _is_ascii_alpha(c) || _is_ascii_digit(c) || c in "-._~
 _is_sub_delim(c::Char) = c in "!\$&'()*+,;="
 _is_userinfo_char(c::Char) = _is_unreserved(c) || _is_sub_delim(c) || c == ':'
 _is_reg_name_char(c::Char) = _is_unreserved(c) || _is_sub_delim(c)
-_is_ip_literal_char(c::Char) = _is_unreserved(c) || _is_sub_delim(c) || c == ':'
 
 function _is_valid_encoded_component(s::AbstractString, valid_ascii::F) where {F}
     i = firstindex(s)
@@ -49,8 +48,75 @@ _is_valid_userinfo(s::AbstractString) = _is_valid_encoded_component(s, _is_useri
 function _is_valid_host(s::AbstractString)
     # The parser removes brackets from IP literals, so ':' distinguishes them
     # from registered names here.
-    valid_ascii = occursin(':', s) ? _is_ip_literal_char : _is_reg_name_char
-    return _is_valid_encoded_component(s, valid_ascii)
+    occursin(':', s) || return _is_valid_encoded_component(s, _is_reg_name_char)
+    first(s) in "vV" && return occursin(r"^[vV][0-9A-Fa-f]+\.[-A-Za-z0-9._~!$&'()*+,;=:]+$", s)
+    return _is_ipv6_literal(s)
+end
+
+# RFC 3986 section 3.2.2 IPv6address, with an optional RFC 6874 zone ID ("%25" and the
+# zone). Scans bytes without allocating, so parsing an IPv6 URI stays allocation-free.
+function _is_ipv6_literal(s::AbstractString)
+    stop = ncodeunits(s)
+    zone = findfirst("%25", s)
+    if zone !== nothing
+        last(zone) < stop || return false
+        _is_valid_encoded_component(SubString(s, last(zone) + 1), _is_unreserved) || return false
+        stop = first(zone) - 1
+    end
+    groups = 0
+    compressed = false
+    i = 1
+    if stop >= 2 && codeunit(s, 1) == UInt8(':') && codeunit(s, 2) == UInt8(':')
+        compressed = true
+        i = 3
+    end
+    while i <= stop
+        j = i
+        while j <= stop && _is_hex_digit(Char(codeunit(s, j)))
+            j += 1
+        end
+        if j <= stop && codeunit(s, j) == UInt8('.')
+            # An IPv4 address can only end the address.
+            _is_ipv4_address(s, i, stop) || return false
+            groups += 2
+            break
+        end
+        1 <= j - i <= 4 || return false
+        groups += 1
+        j > stop && break
+        codeunit(s, j) == UInt8(':') || return false
+        if j < stop && codeunit(s, j + 1) == UInt8(':')
+            compressed && return false
+            compressed = true
+            i = j + 2
+        else
+            i = j + 1
+            i > stop && return false
+        end
+    end
+    # "::" stands for at least one zero group.
+    return compressed ? groups <= 7 : groups == 8
+end
+
+# Bytes `start:stop` of `s` are dec-octet "." dec-octet "." dec-octet "." dec-octet,
+# without leading zeros.
+function _is_ipv4_address(s::AbstractString, start::Int, stop::Int)
+    dots = value = digits = 0
+    for k in start:stop
+        b = codeunit(s, k)
+        if UInt8('0') <= b <= UInt8('9')
+            digits > 0 && value == 0 && return false
+            value = 10 * value + (b - UInt8('0'))
+            digits += 1
+            value > 255 && return false
+        elseif b == UInt8('.') && digits > 0
+            dots += 1
+            value = digits = 0
+        else
+            return false
+        end
+    end
+    return dots == 3 && digits > 0
 end
 
 # `str` for an error message: everything from the authority up to the last '@' of the string,
