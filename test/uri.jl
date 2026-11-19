@@ -567,6 +567,10 @@ urltests = URLTest[
         @test_throws URIs.ParseError URIs.parse_uri(".google.com", strict=true)
         # Unexpected character after scheme
         @test_throws URIs.ParseError URIs.parse_uri("ht!tp://google.com", strict=true)
+        # A scheme is ASCII letters, digits, '+', '-' and '.' (RFC 3986 section 3.1)
+        @test_throws URIs.ParseError URIs.parse_uri("ht,tp://google.com", strict=true)
+        @test_throws URIs.ParseError URIs.parse_uri("é://google.com", strict=true)
+        @test URIs.parse_uri("svn+ssh.v-2://google.com", strict=true).scheme == "svn+ssh.v-2"
     end
 
     @testset "Forbidden ASCII Characters" begin
