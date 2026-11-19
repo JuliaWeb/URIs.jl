@@ -493,6 +493,10 @@ urltests = URLTest[
         @test parse(URI, "s3://bucket/key") == URI(host="bucket", path="/key", scheme="s3")
 
         @test sprint(show, parse(URI, "http://google.com")) == "URI(\"http://google.com\")"
+        # `show` prints a string literal that evaluates back to the same URI
+        graph = URI("https://graph.example/users?\$select=id&q=\"a\\b\"")
+        @test sprint(show, graph) == "URI(\"https://graph.example/users?\\\$select=id&q=\\\"a\\\\b\\\"\")"
+        @test eval(Meta.parse(sprint(show, graph))) == graph
 
         @test tryparse(URI, "http://google.com") == URI("http://google.com")
         @test tryparse(URI, "../relative/path") == URI("../relative/path")
