@@ -621,6 +621,17 @@ urltests = URLTest[
         @test URI("http://a%40b@foo%41.com/").userinfo == "a%40b"
         @test URI("http://a%40b@foo%41.com/").host == "foo%41.com"
         @test URI("http://[fe80::a%25eth0]/").host == "fe80::a%25eth0"
+        # An IP literal is an IPv6 address (with an optional zone ID) or IPvFuture.
+        for host in ("::", "::1", "1::", "1:2:3:4:5:6:7:8", "1::8", "::ffff:192.0.2.1",
+                     "1:2:3:4:5:6:192.0.2.1", "FE80::A%25en0", "v1.a:b")
+            @test URI("http://[$host]:8/").host == host
+        end
+        for host in ("0::0::0", ":", ":1", "1:", "1:2:3:4:5:6:7:8:9", "1::2:3:4:5:6:7:8", "12345::",
+                     "::1.2.3", "::1.2.3.4x", "::256.0.0.1", "::01.2.3.4", "1.2.3.4::", "::%31",
+                     "example.com:8080", "fe80::1%25", "g::1")
+            @test_throws URIs.ParseError URI("http://[$host]/")
+            @test_throws ArgumentError URI(; scheme="http", host)
+        end
         @test URI("http://🍕.com/").host == "🍕.com" # Unicode policy is tracked by #41.
         @test URI("//foo.com:").port == ""
         @test_throws ArgumentError URI(; scheme="http", userinfo="a@b", host="foo.com")
