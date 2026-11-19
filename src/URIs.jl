@@ -532,12 +532,12 @@ end
 # Validate known URI formats
 const uses_authority = ["https", "http", "ws", "wss", "hdfs", "ftp", "gopher", "nntp", "telnet", "imap", "wais", "file", "mms", "shttp", "snews", "prospero", "rtsp", "rtspu", "rsync", "svn", "svn+ssh", "sftp" ,"nfs", "git", "git+ssh", "ldap", "s3", "ssh", "gemini"]
 const non_hierarchical = ["gopher", "hdl", "mailto", "news", "telnet", "wais", "imap", "snews", "sip", "sips"]
-const uses_query = ["http", "wais", "imap", "https", "shttp", "mms", "gopher", "rtsp", "rtspu", "sip", "sips", "ldap", "gemini"]
+const uses_query = ["http", "wais", "imap", "https", "shttp", "mms", "gopher", "rtsp", "rtspu", "sip", "sips", "ldap", "gemini", "ws", "wss", "mailto"]
 const uses_fragment = ["hdfs", "ftp", "hdl", "http", "gopher", "news", "nntp", "wais", "https", "shttp", "snews", "file", "prospero", "gemini"]
 
 "checks if a `URI` is valid"
 function Base.isvalid(uri::URI)
-    sch = uri.scheme
+    sch = lowercase(uri.scheme)
     isempty(sch) && throw(ArgumentError("can not validate relative URI"))
     if ((sch in non_hierarchical) && (i = findfirst(isequal('/'), uri.path); i !== nothing && i > 1)) ||       # path hierarchy not allowed
        (!(sch in uses_query) && !isempty(uri.query)) ||                    # query component not allowed
