@@ -622,7 +622,7 @@ decodeplus(q) = replace(q, '+' => ' ')
 Percent-decode a string according to the URI escaping rules. Each `%` must be
 followed by two hexadecimal digits, or `unescapeuri` throws an `ArgumentError`.
 """
-function unescapeuri(str)
+function unescapeuri(str::Union{String,SubString{String}})
     occursin("%", str) || return str
     out = IOBuffer()
     io = IOBuffer(str)
@@ -640,6 +640,9 @@ function unescapeuri(str)
     end
     return String(take!(out))
 end
+
+# `IOBuffer` reads `String` memory, so copy other string types.
+unescapeuri(str::AbstractString) = occursin('%', str) ? unescapeuri(String(str)) : str
 
 @inline _hex_value(b::UInt8) = 0x30 <= b <= 0x39 ? b - 0x30 : 0x61 <= (b | 0x20) <= 0x66 ? (b | 0x20) - 0x57 : 0xff
 
