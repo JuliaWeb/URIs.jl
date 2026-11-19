@@ -554,8 +554,12 @@ urltests = URLTest[
         end
 
         @test escapeuri("a~b/c", c -> c == '~' || URIs.issafe(c)) == "a~b%2Fc"
-        # a `safe` that keeps a byte above 0x7f gets that character, UTF-8 encoded
-        @test escapeuri("αβ", c -> true) == escapeuri("αβ", isvalid) == "\u00ce\u00b1\u00ce\u00b2"
+        # `safe` judges whole characters, so a kept non-ASCII character is unchanged
+        @test escapeuri("αβ", c -> true) == escapeuri("αβ", isvalid) == "αβ"
+        @test escapeuri("café/x", c -> c != '/') == "café%2Fx"
+        @test escapeuri(SubString("_café", 2), c -> c != 'é') == "caf%C3%A9"
+        # bytes that are not UTF-8 are always escaped
+        @test escapeuri("a\xffé\xc3", c -> true) == "a%FFé%C3"
 
         @test escapeuri([("foo", "bar"), (1, 2)]) == "foo=bar&1=2"
         @test escapeuri(Dict(["foo" => "bar", 1 => 2])) in ("1=2&foo=bar", "foo=bar&1=2")

@@ -567,32 +567,41 @@ escapeuri(c::Char) = escapeuri(string(c), _ -> false)
 
 @inline hexdigit(b::UInt8) = b < 0xa ? UInt8('0') + b : UInt8('A') + (b - 0xa)
 
-# Encoding byte by byte keeps this method resolvable under `--trim`; `join` over a
-# generator reaches `Base.AnnotatedString`, which trimming cannot resolve.
+# `safe` judges each character; an unsafe character, or a byte that is not UTF-8,
+# is percent-encoded byte by byte. Writing bytes keeps this method resolvable under
+# `--trim`; `join` over a generator reaches `Base.AnnotatedString`, which trimming
+# cannot resolve.
 function escapeuri(str::AbstractString, safe::Function=issafe)
-    bytes = codeunits(str)
+    s = str isa Union{String,SubString{String}} ? str : String(codeunits(str))
+    bytes = codeunits(s)
     firstescape = 1
     # Built-in policies keep only ASCII bytes, so their safe prefix can be copied.
-    if str isa String && (safe === issafe || safe === ispathsafe)
+    if s isa String && (safe === issafe || safe === ispathsafe)
         while firstescape <= length(bytes) && safe(Char(bytes[firstescape]))
             firstescape += 1
         end
-        firstescape > length(bytes) && return str
+        firstescape > length(bytes) && return s
     end
     out = UInt8[]
     sizehint!(out, length(bytes))
     for i in 1:(firstescape - 1)
         push!(out, bytes[i])
     end
-    for i in firstescape:length(bytes)
+    i = firstescape
+    while i <= length(bytes)
         b = bytes[i]
-        c = Char(b)
-        if safe(c)
-            # `safe` judges a `Char`, so a kept byte above 0x7f goes out UTF-8 encoded.
-            b < 0x80 ? push!(out, b) : append!(out, codeunits(string(c)))
-        else
-            push!(out, UInt8('%'), hexdigit(b >> 4), hexdigit(b & 0xf))
+        if b < 0x80
+            safe(Char(b)) ? push!(out, b) : push!(out, UInt8('%'), hexdigit(b >> 4), hexdigit(b & 0xf))
+            i += 1
+            continue
         end
+        c, next = iterate(s, i)
+        keep = isvalid(c) && safe(c)
+        for j in i:(next - 1)
+            b = bytes[j]
+            keep ? push!(out, b) : push!(out, UInt8('%'), hexdigit(b >> 4), hexdigit(b & 0xf))
+        end
+        i = next
     end
     return String(out)
 end
