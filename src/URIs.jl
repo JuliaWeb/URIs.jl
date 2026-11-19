@@ -314,9 +314,10 @@ end
 
 function ensurevalid(uri::URI)
     # https://tools.ietf.org/html/rfc3986#section-3.1
-    # ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+    # ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ), spelled out because Julia
+    # regexes match Unicode letters with [[:alpha:]].
     if !(uri.scheme === absent ||
-         occursin(r"^[[:alpha:]][[:alnum:]+-.]*$", uri.scheme))
+         occursin(r"^[A-Za-z][A-Za-z0-9+\-.]*$", uri.scheme))
         throw(ParseError("Invalid URI scheme: $(uri.scheme)"))
     end
     # https://tools.ietf.org/html/rfc3986#section-3.2.2
