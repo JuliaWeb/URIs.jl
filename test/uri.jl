@@ -489,6 +489,14 @@ urltests = URLTest[
 
         @test false == isvalid(parse(URI, "file:///path/to/file/with?should=work#fine"))
         @test true == isvalid(parse(URI, "file:///path/to/file/with%3fshould%3dwork%23fine"))
+        # Queries in WebSocket (RFC 6455) and mailto (RFC 6068) URIs; schemes are
+        # case-insensitive (RFC 3986 section 3.1).
+        @test isvalid(URI("wss://example.com/chat?token=abc"))
+        @test isvalid(URI("ws://example.com/?x=1"))
+        @test !isvalid(URI("wss://example.com/chat#frag"))
+        @test isvalid(URI("mailto:a@example.com?subject=hi"))
+        @test isvalid(URI("HTTPS://example.com/?q=1#f"))
+        @test !isvalid(URI("FILE:///path/to/file/with?should=work#fine"))
 
         @test parse(URI, "s3://bucket/key") == URI(host="bucket", path="/key", scheme="s3")
 
