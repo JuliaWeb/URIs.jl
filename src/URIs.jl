@@ -380,7 +380,11 @@ normalport(uri::URI) = uri.scheme == "http"  && uri.port == "80" ||
 
 hoststring(h) = ':' in h ? "[$h]" : h
 
-Base.show(io::IO, uri::URI) = print(io, "URI(\"", uri, "\")")
+function Base.show(io::IO, uri::URI)
+    print(io, "URI(")
+    show(io, string(uri))
+    print(io, ")")
+end
 
 showparts(io::IO, uri::URI) =
     print(io, "URI(\"", uri.uri, "\"\n",
