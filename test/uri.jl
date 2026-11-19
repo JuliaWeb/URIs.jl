@@ -525,6 +525,10 @@ urltests = URLTest[
         @test unescapeuri(escapeuri("👽")) == "👽"
         @test unescapeuri("α%20β%CE%B3") == "α βγ"
         @test unescapeuri(SubString("prefixα%20β%CE%B3", 7)) == "α βγ"
+        # Other string types, such as the InlineStrings that CSV.jl returns
+        @test unescapeuri(Test.GenericString("α%20β%CE%B3")) == "α βγ"
+        @test unescapeuri(Test.GenericString("α β")) == "α β"
+        @test_throws ArgumentError unescapeuri(Test.GenericString("50%"))
         for byte in UInt8(0):UInt8(255)
             digits = string(byte; base=16, pad=2)
             @test codeunits(unescapeuri("%" * digits)) == [byte]
